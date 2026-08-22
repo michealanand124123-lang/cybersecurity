@@ -311,15 +311,34 @@ body {
 .header-right {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
+    flex-shrink: 0;
 }
-.header-action-btn {
-    background: none; border: none;
+.header-icon-btn {
+    background: transparent;
+    border: 1px solid rgba(0, 242, 254, 0.15);
+    border-radius: 4px;
     color: var(--text-secondary);
     cursor: pointer;
-    width: 20px; height: 20px;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
 }
-.header-action-btn:hover { color: var(--neon-cyan); }
+.header-icon-btn svg {
+    width: 17px;
+    height: 17px;
+}
+.header-icon-btn:hover {
+    color: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+    background: rgba(0, 242, 254, 0.1);
+    box-shadow: 0 0 8px var(--border-glow);
+}
 .sec-badge {
     display: flex;
     align-items: center;
@@ -330,6 +349,8 @@ body {
     border-radius: 20px;
     font-size: 0.75rem;
     font-family: var(--font-mono);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 .badge-dot {
     width: 6px; height: 6px;
@@ -2707,24 +2728,46 @@ body {
    FEATHERLESS AI INTELLIGENCE & COPILOT STYLES
    ======================================================= */
 
-/* AI Header Action Buttons */
-.ai-header-btn {
-    display: flex;
+/* AI Header Navigation Pills */
+.ai-nav-pill {
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(168, 85, 247, 0.1);
-    border: 1px solid rgba(168, 85, 247, 0.4);
-    color: #c084fc;
-    padding: 6px 12px;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
     border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    flex-shrink: 0;
     transition: all 0.25s ease;
 }
-.ai-header-btn:hover {
+
+.ai-copilot-pill {
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(168, 85, 247, 0.45);
+    color: #d8b4fe;
+}
+.ai-copilot-pill:hover {
     background: rgba(168, 85, 247, 0.25);
     border-color: #c084fc;
-    box-shadow: 0 0 15px rgba(168, 85, 247, 0.35);
     color: #ffffff;
+    box-shadow: 0 0 14px rgba(168, 85, 247, 0.4);
 }
+
+.ai-engine-pill {
+    background: rgba(0, 242, 254, 0.08);
+    border: 1px solid rgba(0, 242, 254, 0.35);
+    color: var(--neon-cyan);
+}
+.ai-engine-pill:hover {
+    background: rgba(0, 242, 254, 0.2);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 12px var(--border-glow);
+}
+
 .ai-pulse-dot {
     width: 7px;
     height: 7px;
@@ -2738,25 +2781,15 @@ body {
     50% { transform: scale(1.3); opacity: 1; }
 }
 
-.ai-config-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0, 242, 254, 0.08);
-    border: 1px solid rgba(0, 242, 254, 0.3);
-    color: var(--neon-cyan);
-    padding: 6px 12px;
-    border-radius: 4px;
-}
-.ai-config-btn:hover {
-    background: rgba(0, 242, 254, 0.2);
-    box-shadow: 0 0 12px var(--border-glow);
-}
 .ai-key-indicator {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: var(--text-muted);
+}
+.ai-key-indicator.active {
+    background: var(--neon-teal);
+    box-shadow: 0 0 8px var(--neon-teal);
 }
 .ai-key-indicator.active {
     background: var(--neon-teal);
