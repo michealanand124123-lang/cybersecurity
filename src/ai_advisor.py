@@ -308,7 +308,9 @@ def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None):
             headers={
                 "Authorization": f"Bearer {config['api_key']}",
                 "Content-Type": "application/json",
-                "User-Agent": "VulnTriage-CyberDefense/2.0"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "HTTP-Referer": "https://vulntriage.local",
+                "X-Title": "VulnTriage Cyber Defense"
             },
             method="POST"
         )
@@ -454,7 +456,10 @@ def generate_executive_summary_with_ai(org_id):
             }).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {config['api_key']}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "HTTP-Referer": "https://vulntriage.local",
+                "X-Title": "VulnTriage Cyber Defense"
             },
             method="POST"
         )
