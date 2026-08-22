@@ -240,6 +240,65 @@ createApp({
             }
             signupSubmitted.value = true;
         };
+
+        // ==========================================
+        // FEATHERLESS AI ADVISORY STATE & ACTIONS
+        // ==========================================
+        const showAiModal = ref(false);
+        const aiLoading = ref(false);
+        const aiError = ref(null);
+        const aiAnalysisData = ref(null);
+        const aiServiceStatus = ref({ configured: false, provider: "Featherless AI", status: "checking" });
+
+        const fetchAiStatus = async () => {
+            try {
+                const res = await fetch('/api/ai/status');
+                if (res.ok) {
+                    aiServiceStatus.value = await res.json();
+                }
+            } catch (e) {
+                console.warn('AI status check failed:', e);
+            }
+        };
+
+        const openAiAnalysis = async (vuln) => {
+            if (!vuln) return;
+            showAiModal.value = true;
+            aiLoading.value = true;
+            aiError.value = null;
+            aiAnalysisData.value = null;
+
+            try {
+                const res = await fetch('/api/ai/analyze-vulnerability', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        org_id: selectedOrgId.value,
+                        cve_id: vuln.cve_id,
+                        product_name: vuln.product_name
+                    })
+                });
+
+                if (!res.ok) {
+                    const errJson = await res.json().catch(() => ({}));
+                    throw new Error(errJson.error || `HTTP Network Error: ${res.status}`);
+                }
+
+                const data = await res.json();
+                aiAnalysisData.value = data;
+            } catch (err) {
+                console.error("AI Analysis error:", err);
+                aiError.value = err.message || "Failed to retrieve AI analysis.";
+            } finally {
+                aiLoading.value = false;
+            }
+        };
+
+        const closeAiModal = () => {
+            showAiModal.value = false;
+            aiAnalysisData.value = null;
+            aiError.value = null;
+        };
         
         // ==========================================
         // EXISTING DASHBOARD APPLICATION STATE
@@ -500,6 +559,7 @@ createApp({
         onMounted(() => {
             checkSavedSession();
             fetchData();
+            fetchAiStatus();
         });
 
         return {
@@ -535,6 +595,15 @@ createApp({
             openSignupModal,
             closeSignupModal,
             submitSignup,
+
+            // AI Advisory exports
+            showAiModal,
+            aiLoading,
+            aiError,
+            aiAnalysisData,
+            aiServiceStatus,
+            openAiAnalysis,
+            closeAiModal,
 
             currentOrg,
             currentOrgData,

@@ -619,7 +619,12 @@
                                                     <div class="action-panel">
                                                         <span class="action-lbl">REVENUE RISK ACTION PLAN:</span>
                                                         <p class="action-desc">Review this vulnerability and verify the affected product status.</p>
-                                                        <button class="sys-btn border-glow-btn font-share sm-btn" @click.stop="openModal(vuln)">INSPECT DETAIL LOGS</button>
+                                                        <div class="card-action-btns">
+                                                            <button class="sys-btn border-glow-btn font-share sm-btn ai-trigger-btn" @click.stop="openAiAnalysis(vuln)" title="Request explainable natural-language AI analysis">
+                                                                <span>✨ AI SECURITY ANALYSIS</span>
+                                                            </button>
+                                                            <button class="sys-btn border-glow-btn font-share sm-btn" @click.stop="openModal(vuln)">INSPECT DETAIL LOGS</button>
+                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -1232,7 +1237,165 @@
                     <div class="footer-action-rec-badge">
                         <span><strong>TREATMENT:</strong> Review this vulnerability and verify the affected product status.</span>
                     </div>
-                    <button class="sys-btn md-close-bottom-btn font-share" @click="closeModal">DISMISS</button>
+                    <div class="modal-footer-btns">
+                        <button class="sys-btn border-glow-btn font-share md-close-bottom-btn ai-trigger-btn" @click="openAiAnalysis(selectedVulnDetail)">
+                            <span>✨ AI SECURITY ANALYSIS</span>
+                        </button>
+                        <button class="sys-btn md-close-bottom-btn font-share" @click="closeModal">DISMISS</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             FEATHERLESS AI SECURITY ANALYSIS MODAL
+             ========================================== -->
+        <div v-if="showAiModal" class="modal-backdrop animated fadeIn" @click.self="closeAiModal">
+            <div class="modal-dialog ai-analysis-modal select-glow-border-large">
+                <div class="modal-header">
+                    <div class="modal-title-lockup">
+                        <div class="ai-badge-row">
+                            <span class="ai-service-chip font-share">FEATHERLESS AI ADVISOR</span>
+                            <span v-if="aiAnalysisData && aiAnalysisData.is_fallback" class="ai-fallback-chip font-share">FALLBACK ADVISORY</span>
+                            <span v-else-if="aiAnalysisData && aiAnalysisData.model_used" class="ai-model-chip font-share">{{ aiAnalysisData.model_used }}</span>
+                        </div>
+                        <h3 class="modal-title">Explainable Security Intelligence Analysis</h3>
+                    </div>
+                    <button class="modal-close-btn" @click="closeAiModal" title="Close AI analysis modal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="modal-body scroll-panel">
+                    <!-- Loading State -->
+                    <div v-if="aiLoading" class="ai-loading-panel">
+                        <div class="cyber-ring ai-ring"></div>
+                        <div class="ai-loading-text font-share">CONSULTING FEATHERLESS AI ADVISOR...</div>
+                        <div class="ai-loading-subtext">Generating natural-language explainability from authoritative risk metrics</div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div v-else-if="aiError" class="ai-error-panel">
+                        <div class="error-icon">⚠️</div>
+                        <div class="error-title font-share">AI ADVISORY COMMUNICATION ERROR</div>
+                        <div class="error-message">{{ aiError }}</div>
+                        <button class="sys-btn font-share" @click="closeAiModal">CLOSE</button>
+                    </div>
+
+                    <!-- Analysis Content -->
+                    <div v-else-if="aiAnalysisData" class="ai-content-panel animated fadeIn">
+                        
+                        <!-- OFFICIAL DETERMINISTIC SCORE BANNER -->
+                        <div class="official-score-banner">
+                            <div class="score-banner-header">
+                                <div class="official-badge font-share">
+                                    <span class="pulse-dot"></span>
+                                    <span>OFFICIAL DETERMINISTIC VULNTRIAGE SCORE</span>
+                                </div>
+                                <div class="official-rank-badge font-share">
+                                    RANK #{{ aiAnalysisData.deterministic_rank }} OF {{ aiAnalysisData.total_matched }}
+                                </div>
+                            </div>
+                            <div class="score-banner-main">
+                                <div class="banner-cve-group">
+                                    <h4 class="banner-cve-title font-share">{{ aiAnalysisData.cve_id }}</h4>
+                                    <span class="banner-product-name">{{ aiAnalysisData.product_name }}</span>
+                                </div>
+                                <div class="banner-score-value">
+                                    <span class="score-num font-share">{{ parseFloat(aiAnalysisData.deterministic_risk_score).toFixed(6) }}</span>
+                                    <span class="score-lbl font-share">AGGREGATED RISK</span>
+                                </div>
+                            </div>
+                            <div class="score-banner-disclaimer">
+                                <em>The risk score and priority rank above are calculated strictly by the authoritative deterministic engine. The natural-language sections below provide explainable context.</em>
+                            </div>
+                        </div>
+
+                        <!-- 1. Why Prioritized -->
+                        <div class="ai-section-card">
+                            <h4 class="ai-section-title font-share">
+                                <span class="sec-icon">🎯</span>
+                                <span>WHY THIS VULNERABILITY IS PRIORITIZED</span>
+                            </h4>
+                            <p class="ai-section-body">{{ aiAnalysisData.analysis.why_prioritized }}</p>
+                        </div>
+
+                        <!-- 2. Score Contribution Explanation -->
+                        <div class="ai-section-card">
+                            <h4 class="ai-section-title font-share">
+                                <span class="sec-icon">📐</span>
+                                <span>SCORE CONTRIBUTION EXPLANATION</span>
+                            </h4>
+                            <p class="ai-section-body">{{ aiAnalysisData.analysis.score_contribution_explanation }}</p>
+                            
+                            <div class="ai-contrib-pills-row">
+                                <div class="contrib-pill">
+                                    <span class="pill-lbl font-share">CVSS Normalized Base</span>
+                                    <span class="pill-val font-share">+{{ parseFloat(aiAnalysisData.contributions.cvss).toFixed(6) }}</span>
+                                    <span class="pill-meta">Base: {{ aiAnalysisData.cvss_base_score }}</span>
+                                </div>
+                                <div class="contrib-pill">
+                                    <span class="pill-lbl font-share">CISA KEV Exploited</span>
+                                    <span class="pill-val font-share" :class="aiAnalysisData.cisa_kev ? 'text-red' : ''">
+                                        +{{ parseFloat(aiAnalysisData.contributions.kev).toFixed(6) }}
+                                    </span>
+                                    <span class="pill-meta">{{ aiAnalysisData.cisa_kev ? 'Active in Wild' : 'Unlisted' }}</span>
+                                </div>
+                                <div class="contrib-pill">
+                                    <span class="pill-lbl font-share">FIRST EPSS Likelihood</span>
+                                    <span class="pill-val font-share">+{{ parseFloat(aiAnalysisData.contributions.epss).toFixed(6) }}</span>
+                                    <span class="pill-meta">{{ (aiAnalysisData.first_epss * 100).toFixed(3) }}% Exploit Prob.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. Organisation Context -->
+                        <div class="ai-section-card">
+                            <h4 class="ai-section-title font-share">
+                                <span class="sec-icon">🏢</span>
+                                <span>ORGANISATION CONTEXT</span>
+                            </h4>
+                            <p class="ai-section-body">{{ aiAnalysisData.analysis.organization_context }}</p>
+                        </div>
+
+                        <!-- 4. Ranking Context -->
+                        <div class="ai-section-card">
+                            <h4 class="ai-section-title font-share">
+                                <span class="sec-icon">📊</span>
+                                <span>RANKING CONTEXT</span>
+                            </h4>
+                            <p class="ai-section-body">{{ aiAnalysisData.analysis.ranking_context }}</p>
+                        </div>
+
+                        <!-- 5. Recommended Review -->
+                        <div class="ai-section-card">
+                            <h4 class="ai-section-title font-share">
+                                <span class="sec-icon">🛡️</span>
+                                <span>RECOMMENDED REVIEW</span>
+                            </h4>
+                            <p class="ai-section-body">{{ aiAnalysisData.analysis.recommended_review }}</p>
+                        </div>
+
+                        <!-- 6. Data Limitations -->
+                        <div class="ai-section-card limitations-card">
+                            <h4 class="ai-section-title font-share">
+                                <span class="sec-icon">ℹ️</span>
+                                <span>DATA LIMITATIONS & BOUNDARIES</span>
+                            </h4>
+                            <p class="ai-section-body text-muted">{{ aiAnalysisData.analysis.data_limitations }}</p>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <div class="footer-action-rec-badge">
+                        <span><strong>AUTHORITATIVE SOURCE:</strong> VULNTRIAGE Deterministic Engine</span>
+                    </div>
+                    <button class="sys-btn font-share md-close-bottom-btn" @click="closeAiModal">DISMISS</button>
                 </div>
             </div>
         </div>

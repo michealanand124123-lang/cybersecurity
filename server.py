@@ -13,14 +13,35 @@ from src.data_loader import load_organizations, load_vulnerabilities, load_pract
 from src.matcher import match_products_for_organization
 from src.ranking import rank_vulnerabilities, get_top_n_vulnerabilities
 from src.validation import compare_with_practitioner
+from src.ai_advisor import get_ai_service_status, analyze_vulnerability_with_ai, generate_executive_summary_with_ai
 
 class VulnTriageHandler(BaseHTTPRequestHandler):
     def end_headers(self):
         # Allow cross-origin requests for debugging/port flexibility
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         super().end_headers()
 
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.end_headers()
+
     def do_GET(self):
+        if self.path == '/api/ai/status':
+            try:
+                status_info = get_ai_service_status()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(status_info).encode('utf-8'))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+            return
+
         if self.path == '/api/data':
             try:
                 # Load configurations and data using standard backend modules
@@ -107,6 +128,71 @@ class VulnTriageHandler(BaseHTTPRequestHandler):
                 self.send_response(404)
                 self.end_headers()
                 self.wfile.write(b"Static resource not found.")
+
+    def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
+        
+        try:
+            body = json.loads(post_data)
+        except Exception:
+            body = {}
+
+        if self.path == '/api/ai/analyze-vulnerability':
+            org_id = body.get("org_id")
+            cve_id = body.get("cve_id")
+            product_name = body.get("product_name")
+
+            if not org_id or not cve_id:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Missing required fields: org_id and cve_id"}).encode('utf-8'))
+                return
+
+            try:
+                result = analyze_vulnerability_with_ai(org_id, cve_id, product_name)
+                status_code = 404 if "not_found" in result.get("status", "") else 200
+                self.send_response(status_code)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode('utf-8'))
+            except Exception as e:
+                import traceback
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e), "traceback": traceback.format_exc()}).encode('utf-8'))
+            return
+
+        elif self.path == '/api/ai/executive-summary':
+            org_id = body.get("org_id")
+            if not org_id:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "Missing required field: org_id"}).encode('utf-8'))
+                return
+
+            try:
+                result = generate_executive_summary_with_ai(org_id)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode('utf-8'))
+            except Exception as e:
+                import traceback
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e), "traceback": traceback.format_exc()}).encode('utf-8'))
+            return
+
+        else:
+            self.send_response(404)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Endpoint not found"}).encode('utf-8'))
 
 def run_server(port=5000):
     server_address = ('', port)
