@@ -114,12 +114,9 @@ createApp({
             authErrors.value.general = '';
 
             try {
-                // Realistic authentication simulation delay
                 await new Promise(resolve => setTimeout(resolve, 600));
 
                 const trimmedEmail = authForm.value.email.trim();
-                
-                // Formulate enterprise user profile
                 const emailPrefix = trimmedEmail.split('@')[0];
                 const displayName = emailPrefix
                     .replace(/[._-]/g, ' ')
@@ -147,14 +144,12 @@ createApp({
                 currentUser.value = userSession;
                 authSuccess.value = true;
 
-                // Brief success feedback then transition
                 setTimeout(() => {
                     isAuthenticated.value = true;
                     authLoading.value = false;
                     authSuccess.value = false;
                     currentPage.value = 'dashboard';
                     
-                    // Fetch backend telemetry if not yet loaded
                     if (!backendData.value) {
                         fetchData();
                     }
@@ -240,24 +235,241 @@ createApp({
             }
             signupSubmitted.value = true;
         };
+
+        // ==========================================
+        // FEATHERLESS.AI THREAT INTELLIGENCE & COPILOT
+        // ==========================================
+        const featherlessApiKey = ref(localStorage.getItem('vt_featherless_api_key') || '');
+        const selectedAiModel = ref(localStorage.getItem('vt_featherless_model') || 'meta-llama/Meta-Llama-3.1-8B-Instruct');
+        const aiAvailableModels = ref([
+            { id: 'meta-llama/Meta-Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B Instruct (Meta - Fast & Accurate)' },
+            { id: 'mistralai/Mistral-7B-Instruct-v0.3', name: 'Mistral 7B Instruct v0.3 (Mistral AI)' },
+            { id: 'Qwen/Qwen2.5-7B-Instruct', name: 'Qwen 2.5 7B Instruct (Alibaba)' },
+            { id: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-8B', name: 'DeepSeek R1 Distill Qwen 8B (Reasoning Engine)' }
+        ]);
+        const hasServerEnvKey = ref(false);
+        const showAiSettingsModal = ref(false);
+        const tempApiKey = ref('');
+        const tempAiModel = ref('');
+        const aiSettingsSaved = ref(false);
+
+        // AI Playbook State
+        const showPlaybookModal = ref(false);
+        const selectedPlaybookVuln = ref(null);
+        const activePlaybook = ref(null);
+        const playbookLoading = ref(false);
+        const playbookError = ref(null);
+        const playbookCopied = ref(false);
+
+        // AI Copilot Drawer State
+        const showCopilotDrawer = ref(false);
+        const copilotInput = ref('');
+        const copilotLoading = ref(false);
+        const copilotMessages = ref([
+            {
+                role: 'assistant',
+                content: '🛡️ **VULNTRIAGE AI Copilot initialized.** I have loaded your organization context and active vulnerability priorities. Ask me anything about risk mitigation, emergency workarounds, or attack vectors.'
+            }
+        ]);
+
+        // Fetch models & key status from server
+        const fetchAiConfig = async () => {
+            try {
+                const res = await fetch('/api/ai/models');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.models && data.models.length > 0) {
+                        aiAvailableModels.value = data.models;
+                    }
+                    hasServerEnvKey.value = data.has_env_key || false;
+                }
+            } catch (e) {
+                // ignore
+            }
+        };
+
+        const openAiSettings = () => {
+            tempApiKey.value = featherlessApiKey.value;
+            tempAiModel.value = selectedAiModel.value;
+            aiSettingsSaved.value = false;
+            showAiSettingsModal.value = true;
+        };
+
+        const closeAiSettings = () => {
+            showAiSettingsModal.value = false;
+            aiSettingsSaved.value = false;
+        };
+
+        const saveAiSettings = () => {
+            featherlessApiKey.value = tempApiKey.value.trim();
+            selectedAiModel.value = tempAiModel.value;
+            localStorage.setItem('vt_featherless_api_key', featherlessApiKey.value);
+            localStorage.setItem('vt_featherless_model', selectedAiModel.value);
+            aiSettingsSaved.value = true;
+            setTimeout(() => {
+                showAiSettingsModal.value = false;
+                aiSettingsSaved.value = false;
+            }, 1000);
+        };
+
+        // Generate AI Playbook
+        const generateAiPlaybook = async (vuln) => {
+            selectedPlaybookVuln.value = vuln;
+            showPlaybookModal.value = true;
+            playbookLoading.value = true;
+            playbookError.value = null;
+            activePlaybook.value = null;
+            playbookCopied.value = false;
+
+            try {
+                const payload = {
+                    vuln: vuln,
+                    org: currentOrg.value,
+                    api_key: featherlessApiKey.value,
+                    model: selectedAiModel.value
+                };
+
+                const res = await fetch('/api/ai/playbook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    activePlaybook.value = data;
+                } else {
+                    playbookError.value = data.error || 'Failed to generate AI playbook.';
+                }
+            } catch (err) {
+                playbookError.value = 'Network error connecting to AI analysis engine.';
+            } finally {
+                playbookLoading.value = false;
+            }
+        };
+
+        const closePlaybookModal = () => {
+            showPlaybookModal.value = false;
+            selectedPlaybookVuln.value = null;
+            activePlaybook.value = null;
+            playbookError.value = null;
+        };
+
+        const copyPlaybookToClipboard = () => {
+            if (!activePlaybook.value || !activePlaybook.value.playbook) return;
+            navigator.clipboard.writeText(activePlaybook.value.playbook);
+            playbookCopied.value = true;
+            setTimeout(() => {
+                playbookCopied.value = false;
+            }, 2000);
+        };
+
+        // Copilot Chat
+        const toggleCopilotDrawer = () => {
+            showCopilotDrawer.value = !showCopilotDrawer.value;
+        };
+
+        const sendCopilotMessage = async (customQuery = null) => {
+            const queryText = (customQuery || copilotInput.value || '').trim();
+            if (!queryText || copilotLoading.value) return;
+
+            copilotMessages.value.push({ role: 'user', content: queryText });
+            copilotInput.value = '';
+            copilotLoading.value = true;
+
+            try {
+                // Focus on selected detail vuln or top 1
+                const currentVuln = selectedVulnDetail.value || (currentOrgData.value?.top_5 ? currentOrgData.value.top_5[0] : null);
+
+                const history = copilotMessages.value
+                    .filter(m => m.role === 'user' || m.role === 'assistant')
+                    .map(m => ({ role: m.role, content: m.content }));
+
+                const payload = {
+                    query: queryText,
+                    vuln: currentVuln,
+                    org: currentOrg.value,
+                    history: history,
+                    api_key: featherlessApiKey.value,
+                    model: selectedAiModel.value
+                };
+
+                const res = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (data.success && data.reply) {
+                    copilotMessages.value.push({ role: 'assistant', content: data.reply });
+                } else {
+                    copilotMessages.value.push({
+                        role: 'assistant',
+                        content: `⚠️ **AI Copilot Error:** ${data.error || 'Could not process query. Please check your Featherless API key.'}`
+                    });
+                }
+            } catch (err) {
+                copilotMessages.value.push({
+                    role: 'assistant',
+                    content: '⚠️ **Network connection error.** Unable to connect to AI gateway.'
+                });
+            } finally {
+                copilotLoading.value = false;
+            }
+        };
+
+        const clearCopilotChat = () => {
+            copilotMessages.value = [
+                {
+                    role: 'assistant',
+                    content: '🛡️ **Chat session reset.** Ready for new cyber defense queries.'
+                }
+            ];
+        };
+
+        // Safe client-side Markdown to HTML Formatter
+        const formatMarkdown = (md) => {
+            if (!md) return '';
+            let html = md
+                // Escape raw HTML characters
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                // Code blocks ```code```
+                .replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, '<pre class="cyber-code-block"><code class="lang-$1">$2</code></pre>')
+                // Inline code `code`
+                .replace(/`([^`]+)`/g, '<code class="cyber-inline-code">$1</code>')
+                // Headings
+                .replace(/^### (.*$)/gim, '<h4 class="ai-heading-3">$1</h4>')
+                .replace(/^## (.*$)/gim, '<h3 class="ai-heading-2">$1</h3>')
+                .replace(/^# (.*$)/gim, '<h2 class="ai-heading-1">$1</h2>')
+                // Bold & Italic
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Blockquotes
+                .replace(/^\> (.*$)/gim, '<blockquote class="ai-quote-box">$1</blockquote>')
+                // Bullet points
+                .replace(/^\s*[\-\*]\s+(.*)$/gim, '<li class="ai-list-item">$1</li>')
+                // Line breaks
+                .replace(/\n\n/g, '<br/><br/>');
+
+            return html;
+        };
         
         // ==========================================
         // EXISTING DASHBOARD APPLICATION STATE
         // ==========================================
-        // Expanded CVEs tracker for collapsible cards
         const expandedVulnCves = ref(new Set());
         
-        // All findings filters
         const searchQuery = ref('');
         const productFilter = ref('');
         const kevFilter = ref('');
         const sortOption = ref('risk_score');
         
-        // Modal detail box state
         const showModal = ref(false);
         const selectedVulnDetail = ref(null);
 
-        // Sidebar Navigation
         const navItems = [
             {
                 id: 'dashboard',
@@ -296,7 +508,6 @@ createApp({
             }
         ];
 
-        // Fetch application state data from server API
         const fetchData = async () => {
             loading.value = true;
             error.value = null;
@@ -311,11 +522,9 @@ createApp({
                 }
                 backendData.value = data;
                 
-                // Initialize default expand states for top5
                 const currentTop5 = data.org_data[selectedOrgId.value]?.top_5 || [];
                 expandedVulnCves.value.clear();
                 if (currentTop5.length > 0) {
-                    // Expand rank 1 by default
                     expandedVulnCves.value.add(currentTop5[0].cve_id + '-' + currentTop5[0].product_name);
                 }
             } catch (err) {
@@ -326,32 +535,27 @@ createApp({
             }
         };
 
-        // Active organization object
         const currentOrg = computed(() => {
             if (!backendData.value || !backendData.value.organizations) return null;
             return backendData.value.organizations.find(o => o.org_id === selectedOrgId.value);
         });
 
-        // Active organization triage structures
         const currentOrgData = computed(() => {
             if (!backendData.value || !backendData.value.org_data) return null;
             return backendData.value.org_data[selectedOrgId.value];
         });
 
-        // KEV Count inside top 5
         const top5KevCount = computed(() => {
             if (!currentOrgData.value || !currentOrgData.value.top_5) return 0;
             return currentOrgData.value.top_5.filter(v => v.cisa_kev).length;
         });
 
-        // Average Risk Score of top prioritized vulnerabilities
         const averageRiskScore = computed(() => {
             if (!currentOrgData.value || !currentOrgData.value.top_5 || currentOrgData.value.top_5.length === 0) return '0.000000';
             const sum = currentOrgData.value.top_5.reduce((acc, curr) => acc + curr.risk_score, 0);
             return (sum / currentOrgData.value.top_5.length).toFixed(6);
         });
 
-        // Error Diagnostics logs mapping
         const allLoggedErrors = computed(() => {
             if (!backendData.value || !backendData.value.errors) return [];
             const errs = backendData.value.errors;
@@ -367,12 +571,10 @@ createApp({
             return allLoggedErrors.value.length;
         });
 
-        // All matched vulnerabilities filtered table registry
         const filteredFindings = computed(() => {
             if (!currentOrgData.value || !currentOrgData.value.ranked_vulnerabilities) return [];
             let list = [...currentOrgData.value.ranked_vulnerabilities];
 
-            // Search query filter
             if (searchQuery.value) {
                 const query = searchQuery.value.toLowerCase().trim();
                 list = list.filter(v => 
@@ -381,19 +583,16 @@ createApp({
                 );
             }
 
-            // Products filter
             if (productFilter.value) {
                 list = list.filter(v => v.product_name === productFilter.value);
             }
 
-            // KEV filter
             if (kevFilter.value === 'kev') {
                 list = list.filter(v => v.cisa_kev);
             } else if (kevFilter.value === 'non_kev') {
                 list = list.filter(v => !v.cisa_kev);
             }
 
-            // Dynamic sort mappings (not mutating backend ranks, only frontend display sorting)
             if (sortOption.value === 'risk_score') {
                 list.sort((a, b) => b.risk_score - a.risk_score);
             } else if (sortOption.value === 'cvss') {
@@ -405,20 +604,16 @@ createApp({
             return list;
         });
 
-        // Page change handler
         const setPage = (pageName) => {
             currentPage.value = pageName;
             mobileLayoutOpen.value = false;
         };
 
-        // Org swap handler
         const onOrgChange = () => {
-            // Recapture default expand for index 0 of current org
             expandedVulnCves.value.clear();
             if (currentOrgData.value && currentOrgData.value.top_5 && currentOrgData.value.top_5.length > 0) {
                 expandedVulnCves.value.add(currentOrgData.value.top_5[0].cve_id + '-' + currentOrgData.value.top_5[0].product_name);
             }
-            // Reset searches
             productFilter.value = '';
             searchQuery.value = '';
             kevFilter.value = '';
@@ -430,7 +625,6 @@ createApp({
             kevFilter.value = '';
         };
 
-        // Expand/Collapse cards
         const toggleVulnExpand = (cveId) => {
             if (expandedVulnCves.value.has(cveId)) {
                 expandedVulnCves.value.delete(cveId);
@@ -443,7 +637,6 @@ createApp({
             return expandedVulnCves.value.has(cveId);
         };
 
-        // Modals detail toggles
         const openModal = (vuln) => {
             selectedVulnDetail.value = vuln;
             showModal.value = true;
@@ -454,14 +647,12 @@ createApp({
             selectedVulnDetail.value = null;
         };
 
-        // Theme controllers
         const toggleTheme = () => {
             theme.value = theme.value === 'dark' ? 'light' : 'dark';
             document.body.classList.toggle('light-theme', theme.value === 'light');
             document.body.classList.toggle('cyber-theme', theme.value === 'dark');
         };
 
-        // Severity utility helper mappings
         const getSeverityLabel = (cvss) => {
             const val = parseFloat(cvss);
             if (val >= 9.0) return 'CRITICAL';
@@ -490,7 +681,6 @@ createApp({
             return '0 Match';
         };
 
-        // Helper to output dynamic scaling percentage of contribution weights
         const percentScale = (value, weight) => {
             if (!weight) return '0%';
             const factor = parseFloat(value) / parseFloat(weight);
@@ -500,6 +690,7 @@ createApp({
         onMounted(() => {
             checkSavedSession();
             fetchData();
+            fetchAiConfig();
         });
 
         return {
@@ -535,6 +726,36 @@ createApp({
             openSignupModal,
             closeSignupModal,
             submitSignup,
+
+            // Featherless AI exports
+            featherlessApiKey,
+            selectedAiModel,
+            aiAvailableModels,
+            hasServerEnvKey,
+            showAiSettingsModal,
+            tempApiKey,
+            tempAiModel,
+            aiSettingsSaved,
+            openAiSettings,
+            closeAiSettings,
+            saveAiSettings,
+            showPlaybookModal,
+            selectedPlaybookVuln,
+            activePlaybook,
+            playbookLoading,
+            playbookError,
+            playbookCopied,
+            generateAiPlaybook,
+            closePlaybookModal,
+            copyPlaybookToClipboard,
+            showCopilotDrawer,
+            copilotInput,
+            copilotLoading,
+            copilotMessages,
+            toggleCopilotDrawer,
+            sendCopilotMessage,
+            clearCopilotChat,
+            formatMarkdown,
 
             currentOrg,
             currentOrgData,

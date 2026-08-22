@@ -411,6 +411,18 @@
                     </div>
                     
                     <div class="header-right">
+                        <!-- AI Security Copilot Toggle Button -->
+                        <button class="header-action-btn ai-header-btn" title="Open AI Cyber Copilot" @click="toggleCopilotDrawer">
+                            <span class="ai-pulse-dot"></span>
+                            <span class="font-share header-btn-lbl">🤖 AI COPILOT</span>
+                        </button>
+
+                        <!-- AI Model & Key Configuration -->
+                        <button class="header-action-btn ai-config-btn" title="Featherless AI Engine Settings" @click="openAiSettings">
+                            <span class="font-share header-btn-lbl">⚡ AI ENGINE</span>
+                            <span class="ai-key-indicator" :class="{ active: featherlessApiKey || hasServerEnvKey }"></span>
+                        </button>
+
                         <!-- User Clearance Badge -->
                         <div class="header-operator-card" :title="'Clearance: ' + currentUser.clearance">
                             <span class="operator-avatar-icon">🛡️</span>
@@ -619,7 +631,12 @@
                                                     <div class="action-panel">
                                                         <span class="action-lbl">REVENUE RISK ACTION PLAN:</span>
                                                         <p class="action-desc">Review this vulnerability and verify the affected product status.</p>
-                                                        <button class="sys-btn border-glow-btn font-share sm-btn" @click.stop="openModal(vuln)">INSPECT DETAIL LOGS</button>
+                                                        <div class="action-btn-group">
+                                                            <button class="sys-btn border-glow-btn font-share sm-btn" @click.stop="openModal(vuln)">INSPECT DETAIL LOGS</button>
+                                                            <button class="sys-btn ai-playbook-trigger-btn font-share sm-btn" @click.stop="generateAiPlaybook(vuln)">
+                                                                <span class="ai-sparkle">⚡</span> AI PLAYBOOK
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -1232,7 +1249,254 @@
                     <div class="footer-action-rec-badge">
                         <span><strong>TREATMENT:</strong> Review this vulnerability and verify the affected product status.</span>
                     </div>
-                    <button class="sys-btn md-close-bottom-btn font-share" @click="closeModal">DISMISS</button>
+                    <div class="modal-footer-actions">
+                        <button class="sys-btn ai-playbook-trigger-btn font-share" @click="generateAiPlaybook(selectedVulnDetail)">
+                            <span class="ai-sparkle">⚡</span> GENERATE AI REMEDIATION PLAYBOOK
+                        </button>
+                        <button class="sys-btn md-close-bottom-btn font-share" @click="closeModal">DISMISS</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             FEATHERLESS AI REMEDIATION PLAYBOOK MODAL
+             ========================================== -->
+        <div v-if="showPlaybookModal" class="modal-backdrop animated fadeIn" @click.self="closePlaybookModal">
+            <div class="modal-dialog ai-playbook-modal">
+                <div class="modal-header">
+                    <div class="modal-title-lockup">
+                        <div class="ai-badge-row">
+                            <span class="ai-chip font-share">🤖 FEATHERLESS.AI THREAT INTELLIGENCE</span>
+                            <span v-if="activePlaybook && activePlaybook.model" class="ai-model-chip font-mono">{{ activePlaybook.model }}</span>
+                        </div>
+                        <h3 class="modal-title" v-if="selectedPlaybookVuln">
+                            Cyber Defense Playbook: <span class="text-neon">{{ selectedPlaybookVuln.cve_id }}</span>
+                        </h3>
+                    </div>
+                    <button class="modal-close-btn" @click="closePlaybookModal" title="Close modal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="modal-body ai-playbook-body">
+                    <!-- Context bar -->
+                    <div v-if="selectedPlaybookVuln" class="playbook-context-bar">
+                        <div class="p-ctx-item">
+                            <span class="p-ctx-lbl">ASSET:</span>
+                            <span class="p-ctx-val">{{ selectedPlaybookVuln.product_name }}</span>
+                        </div>
+                        <div class="p-ctx-item">
+                            <span class="p-ctx-lbl">ORGANISATION:</span>
+                            <span class="p-ctx-val">{{ currentOrg.name }}</span>
+                        </div>
+                        <div class="p-ctx-item">
+                            <span class="p-ctx-lbl">RISK APPETITE:</span>
+                            <span class="p-ctx-val">{{ currentOrg.risk_appetite }}</span>
+                        </div>
+                        <div class="p-ctx-item">
+                            <span class="p-ctx-lbl">CVSS / KEV:</span>
+                            <span class="p-ctx-val">{{ selectedPlaybookVuln.cvss_base_score }} / {{ selectedPlaybookVuln.cisa_kev ? 'Active' : 'No' }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div v-if="playbookLoading" class="ai-loading-container">
+                        <div class="ai-pulsing-node"></div>
+                        <div class="ai-loading-title font-share">SYNTHESIZING THREAT MITIGATION PLAYBOOK...</div>
+                        <div class="ai-loading-sub font-mono">Querying Featherless LLM ({{ selectedAiModel }})</div>
+                    </div>
+
+                    <!-- Error State -->
+                    <div v-else-if="playbookError" class="ai-error-box">
+                        <div class="ai-err-icon">⚠️</div>
+                        <div class="ai-err-title font-share">AI INTELLIGENCE GATEWAY ERROR</div>
+                        <div class="ai-err-desc">{{ playbookError }}</div>
+                        <div class="ai-err-action">
+                            <button class="sys-btn font-share sm-btn" @click="openAiSettings">CONFIGURE FEATHERLESS KEY</button>
+                            <button class="sys-btn border-glow-btn font-share sm-btn" @click="generateAiPlaybook(selectedPlaybookVuln)">RETRY GENERATION</button>
+                        </div>
+                    </div>
+
+                    <!-- Playbook Rendered Content -->
+                    <div v-else-if="activePlaybook && activePlaybook.playbook" class="ai-playbook-content animated fadeIn">
+                        <div v-if="activePlaybook.is_mock" class="ai-mock-banner">
+                            <span class="banner-icon">💡</span>
+                            <span>Displaying offline baseline intelligence. Paste your free <strong>Featherless API Key</strong> in <strong>AI Settings</strong> to activate live Llama 3.1 & Mistral model streaming.</span>
+                        </div>
+                        <div class="markdown-body" v-html="formatMarkdown(activePlaybook.playbook)"></div>
+                    </div>
+                </div>
+
+                <div class="modal-footer playbook-footer">
+                    <div class="playbook-footer-left">
+                        <button v-if="activePlaybook && activePlaybook.playbook" class="sys-btn font-share" @click="copyPlaybookToClipboard">
+                            {{ playbookCopied ? '✓ COPIED TO CLIPBOARD' : '📋 COPY PLAYBOOK' }}
+                        </button>
+                        <button class="sys-btn font-share" @click="generateAiPlaybook(selectedPlaybookVuln)" :disabled="playbookLoading">
+                            🔄 REGENERATE
+                        </button>
+                    </div>
+                    <button class="sys-btn md-close-bottom-btn font-share" @click="closePlaybookModal">DISMISS</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             AI SECURITY COPILOT SLIDE-OUT DRAWER
+             ========================================== -->
+        <div class="copilot-drawer-backdrop" :class="{ 'drawer-active': showCopilotDrawer }" @click.self="showCopilotDrawer = false">
+            <div class="copilot-drawer-panel" :class="{ 'drawer-open': showCopilotDrawer }">
+                <div class="copilot-header">
+                    <div class="copilot-title-lockup">
+                        <span class="copilot-pulse-dot"></span>
+                        <div>
+                            <h3 class="copilot-title font-heading">VULNTRIAGE AI COPILOT</h3>
+                            <span class="copilot-sub font-mono">{{ selectedAiModel.split('/')[1] || selectedAiModel }}</span>
+                        </div>
+                    </div>
+                    <div class="copilot-header-actions">
+                        <button class="copilot-icon-btn" title="Clear Chat History" @click="clearCopilotChat">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                        <button class="copilot-icon-btn" title="AI Settings" @click="openAiSettings">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </button>
+                        <button class="copilot-icon-btn" title="Close Drawer" @click="showCopilotDrawer = false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Context Chip -->
+                <div class="copilot-context-banner font-share">
+                    <span>TARGET CONTEXT: <strong>{{ currentOrg.name }}</strong> ({{ currentOrg.sector }})</span>
+                </div>
+
+                <!-- Suggested Quick Prompts -->
+                <div class="copilot-quick-chips">
+                    <button class="quick-chip font-share" @click="sendCopilotMessage('What is the emergency mitigation if we cannot reboot or patch immediately?')">
+                        ⚡ Quick Workaround
+                    </button>
+                    <button class="quick-chip font-share" @click="sendCopilotMessage('Explain the attack vector and why EPSS is high for our top prioritized finding.')">
+                        🔍 Explain EPSS Risk
+                    </button>
+                    <button class="quick-chip font-share" @click="sendCopilotMessage('Generate a Splunk query to detect exploitation of our top critical asset.')">
+                        🚨 SIEM Query
+                    </button>
+                </div>
+
+                <!-- Messages Container -->
+                <div class="copilot-messages-container">
+                    <div v-for="(msg, i) in copilotMessages" :key="i" class="copilot-msg-bubble" :class="msg.role">
+                        <div class="msg-avatar-icon">
+                            {{ msg.role === 'assistant' ? '🤖' : '🛡️' }}
+                        </div>
+                        <div class="msg-body markdown-body" v-html="formatMarkdown(msg.content)"></div>
+                    </div>
+
+                    <!-- Typing loader -->
+                    <div v-if="copilotLoading" class="copilot-msg-bubble assistant loading">
+                        <div class="msg-avatar-icon">🤖</div>
+                        <div class="msg-typing-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Copilot Input Box -->
+                <form class="copilot-input-bar" @submit.prevent="sendCopilotMessage()">
+                    <input 
+                        type="text" 
+                        class="copilot-text-input" 
+                        placeholder="Ask AI Copilot about threat mitigations..." 
+                        v-model="copilotInput"
+                        :disabled="copilotLoading"
+                    />
+                    <button type="submit" class="copilot-send-btn" :disabled="!copilotInput.trim() || copilotLoading">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             FEATHERLESS AI SETTINGS MODAL
+             ========================================== -->
+        <div v-if="showAiSettingsModal" class="modal-backdrop animated fadeIn" @click.self="closeAiSettings">
+            <div class="modal-dialog auth-submodal ai-settings-modal">
+                <div class="modal-header">
+                    <div class="modal-title-lockup">
+                        <span class="auth-modal-badge font-share">LLM THREAT INTELLIGENCE GATEWAY</span>
+                        <h3 class="modal-title">Featherless.ai Configuration</h3>
+                    </div>
+                    <button class="modal-close-btn" @click="closeAiSettings" title="Close modal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <p class="auth-modal-desc">
+                        Connect your free Hackathon <strong>Featherless.ai API Key</strong> to power live automated remediation playbooks, executive CISO briefings, and the interactive Cyber Copilot.
+                    </p>
+
+                    <div class="cyber-form-group" style="margin-top: 16px;">
+                        <label class="cyber-form-label font-share">FEATHERLESS API KEY</label>
+                        <div class="cyber-input-wrapper">
+                            <div class="input-icon-slot">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 2l-2 2m-1.5 1.5L14 9M3 21l6-6m1.5-1.5L14 9m0 0l3 3 5-5-3-3-5 5z"></path>
+                                </svg>
+                            </div>
+                            <input 
+                                type="password" 
+                                class="cyber-input-field" 
+                                placeholder="Paste your Featherless API key (fl-xxx...)" 
+                                v-model="tempApiKey"
+                            />
+                        </div>
+                        <span class="input-hint font-mono">Keys are stored securely in your local browser session.</span>
+                    </div>
+
+                    <div class="cyber-form-group" style="margin-top: 14px;">
+                        <label class="cyber-form-label font-share">OPEN-SOURCE LLM MODEL</label>
+                        <div class="cyber-input-wrapper">
+                            <select v-model="tempAiModel" class="cyber-select-field">
+                                <option v-for="m in aiAvailableModels" :key="m.id" :value="m.id">
+                                    {{ m.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div v-if="aiSettingsSaved" class="ai-save-success-pill animated fadeIn">
+                        <span>✓ AI Configuration Saved Successfully</span>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="sys-btn" @click="closeAiSettings">CANCEL</button>
+                    <button class="login-submit-btn modal-action-btn font-share" @click="saveAiSettings">
+                        SAVE CONFIGURATION
+                    </button>
                 </div>
             </div>
         </div>
