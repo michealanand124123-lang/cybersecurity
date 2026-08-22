@@ -2,6 +2,7 @@ const { createApp, ref, computed, onMounted } = Vue;
 
 createApp({
     setup() {
+        // Core application state
         const loading = ref(true);
         const error = ref(null);
         const backendData = ref(null);
@@ -10,7 +11,239 @@ createApp({
         const selectedOrgId = ref('ORG-001');
         const mobileLayoutOpen = ref(false);
         const theme = ref('dark');
+
+        // ==========================================
+        // AUTHENTICATION STATE & LOGIC
+        // ==========================================
+        const isAuthenticated = ref(false);
+        const authLoading = ref(false);
+        const authSuccess = ref(false);
         
+        const authForm = ref({
+            email: '',
+            password: '',
+            rememberMe: true,
+            showPassword: false
+        });
+
+        const authErrors = ref({
+            email: '',
+            password: '',
+            general: ''
+        });
+
+        const currentUser = ref({
+            name: 'SecOps Analyst',
+            email: 'analyst@vulntriage.sec',
+            role: 'Lead Vulnerability Analyst',
+            clearance: 'LEVEL 4 - SEC-NET'
+        });
+
+        // Modals for Forgot Password & Enterprise Account Provisioning
+        const showForgotModal = ref(false);
+        const forgotEmail = ref('');
+        const forgotSubmitted = ref(false);
+
+        const showSignupModal = ref(false);
+        const signupForm = ref({
+            name: '',
+            email: '',
+            organization: 'ORG-001 (Global Financial Services)',
+            clearanceLevel: 'Level 2 - Standard Analyst',
+            justification: ''
+        });
+        const signupSubmitted = ref(false);
+
+        // Check for existing session token
+        const checkSavedSession = () => {
+            try {
+                const saved = localStorage.getItem('vulntriage_session') || sessionStorage.getItem('vulntriage_session');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.token && parsed.user) {
+                        currentUser.value = parsed.user;
+                        isAuthenticated.value = true;
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not restore auth session:', e);
+            }
+        };
+
+        // Form validation
+        const validateEmailFormat = (email) => {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(String(email).toLowerCase());
+        };
+
+        const validateLoginForm = () => {
+            let valid = true;
+            authErrors.value.email = '';
+            authErrors.value.password = '';
+            authErrors.value.general = '';
+
+            const trimmedEmail = (authForm.value.email || '').trim();
+            const trimmedPassword = (authForm.value.password || '').trim();
+
+            if (!trimmedEmail) {
+                authErrors.value.email = 'Please enter your work email.';
+                valid = false;
+            } else if (!validateEmailFormat(trimmedEmail)) {
+                authErrors.value.email = 'Please enter a valid email address.';
+                valid = false;
+            }
+
+            if (!trimmedPassword) {
+                authErrors.value.password = 'Password is required.';
+                valid = false;
+            } else if (trimmedPassword.length < 6) {
+                authErrors.value.password = 'Password must be at least 6 characters.';
+                valid = false;
+            }
+
+            return valid;
+        };
+
+        // Handle Login Submission
+        const handleLogin = async () => {
+            if (!validateLoginForm()) {
+                return;
+            }
+
+            authLoading.value = true;
+            authErrors.value.general = '';
+
+            try {
+                // Realistic authentication simulation delay
+                await new Promise(resolve => setTimeout(resolve, 600));
+
+                const trimmedEmail = authForm.value.email.trim();
+                
+                // Formulate enterprise user profile
+                const emailPrefix = trimmedEmail.split('@')[0];
+                const displayName = emailPrefix
+                    .replace(/[._-]/g, ' ')
+                    .replace(/\b\w/g, c => c.toUpperCase());
+
+                const userSession = {
+                    name: displayName || 'SecOps Analyst',
+                    email: trimmedEmail,
+                    role: 'Lead Vulnerability Analyst',
+                    clearance: 'LEVEL 4 - SEC-NET',
+                    loginTimestamp: new Date().toISOString()
+                };
+
+                const sessionPayload = {
+                    token: 'vt_sec_' + Math.random().toString(36).substring(2) + Date.now(),
+                    user: userSession
+                };
+
+                if (authForm.value.rememberMe) {
+                    localStorage.setItem('vulntriage_session', JSON.stringify(sessionPayload));
+                } else {
+                    sessionStorage.setItem('vulntriage_session', JSON.stringify(sessionPayload));
+                }
+
+                currentUser.value = userSession;
+                authSuccess.value = true;
+
+                // Brief success feedback then transition
+                setTimeout(() => {
+                    isAuthenticated.value = true;
+                    authLoading.value = false;
+                    authSuccess.value = false;
+                    currentPage.value = 'dashboard';
+                    
+                    // Fetch backend telemetry if not yet loaded
+                    if (!backendData.value) {
+                        fetchData();
+                    }
+                }, 400);
+
+            } catch (err) {
+                authLoading.value = false;
+                authErrors.value.general = 'Authentication gateway rejected credentials. Please verify your access.';
+            }
+        };
+
+        // Fast-fill demo credentials
+        const fastFillDemo = () => {
+            authForm.value.email = 'analyst@vulntriage.sec';
+            authForm.value.password = 'CyberDefense#2026';
+            authErrors.value.email = '';
+            authErrors.value.password = '';
+            authErrors.value.general = '';
+        };
+
+        // Toggle password visibility
+        const togglePasswordVisibility = () => {
+            authForm.value.showPassword = !authForm.value.showPassword;
+        };
+
+        // Handle Logout
+        const handleLogout = () => {
+            try {
+                localStorage.removeItem('vulntriage_session');
+                sessionStorage.removeItem('vulntriage_session');
+            } catch (e) {
+                // ignore
+            }
+            isAuthenticated.value = false;
+            authForm.value.password = '';
+            authErrors.value.email = '';
+            authErrors.value.password = '';
+            authErrors.value.general = '';
+            authSuccess.value = false;
+            authLoading.value = false;
+            mobileLayoutOpen.value = false;
+        };
+
+        // Modal Helpers
+        const openForgotModal = () => {
+            forgotEmail.value = authForm.value.email || '';
+            forgotSubmitted.value = false;
+            showForgotModal.value = true;
+        };
+
+        const closeForgotModal = () => {
+            showForgotModal.value = false;
+            forgotSubmitted.value = false;
+        };
+
+        const submitForgot = () => {
+            if (!forgotEmail.value || !validateEmailFormat(forgotEmail.value)) {
+                return;
+            }
+            forgotSubmitted.value = true;
+        };
+
+        const openSignupModal = () => {
+            signupForm.value = {
+                name: '',
+                email: authForm.value.email || '',
+                organization: 'ORG-001 (Global Financial Services)',
+                clearanceLevel: 'Level 2 - Standard Analyst',
+                justification: ''
+            };
+            signupSubmitted.value = false;
+            showSignupModal.value = true;
+        };
+
+        const closeSignupModal = () => {
+            showSignupModal.value = false;
+            signupSubmitted.value = false;
+        };
+
+        const submitSignup = () => {
+            if (!signupForm.value.name || !signupForm.value.email || !validateEmailFormat(signupForm.value.email)) {
+                return;
+            }
+            signupSubmitted.value = true;
+        };
+        
+        // ==========================================
+        // EXISTING DASHBOARD APPLICATION STATE
+        // ==========================================
         // Expanded CVEs tracker for collapsible cards
         const expandedVulnCves = ref(new Set());
         
@@ -265,6 +498,7 @@ createApp({
         };
 
         onMounted(() => {
+            checkSavedSession();
             fetchData();
         });
 
@@ -278,6 +512,30 @@ createApp({
             theme,
             navItems,
             
+            // Auth exports
+            isAuthenticated,
+            authLoading,
+            authSuccess,
+            authForm,
+            authErrors,
+            currentUser,
+            showForgotModal,
+            forgotEmail,
+            forgotSubmitted,
+            showSignupModal,
+            signupForm,
+            signupSubmitted,
+            handleLogin,
+            handleLogout,
+            fastFillDemo,
+            togglePasswordVisibility,
+            openForgotModal,
+            closeForgotModal,
+            submitForgot,
+            openSignupModal,
+            closeSignupModal,
+            submitSignup,
+
             currentOrg,
             currentOrgData,
             top5KevCount,

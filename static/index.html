@@ -15,8 +15,299 @@
 <body class="cyber-theme">
     <div id="app" v-cloak>
         
-        <!-- Loading State Overlay -->
-        <div v-if="loading" class="overlay loading-overlay">
+        <!-- ==========================================
+             LOGIN SCREEN (AUTHENTICATION GATEWAY)
+             ========================================== -->
+        <div v-if="!isAuthenticated" class="login-screen-wrapper">
+            <!-- Background ambient grid & cyber glow aura -->
+            <div class="login-bg-grid"></div>
+            <div class="login-radial-glow top-left-glow"></div>
+            <div class="login-radial-glow bottom-right-glow"></div>
+
+            <div class="login-main-container">
+                <!-- LEFT COLUMN: FUTURISTIC BRANDING & CYBER TELEMETRY -->
+                <div class="login-branding-panel">
+                    <div class="brand-header-block">
+                        <div class="brand-logo-cluster">
+                            <div class="brand-shield-icon-large">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" class="shield-outer"/>
+                                    <path d="M12 8v4" stroke-linecap="round" class="shield-line"/>
+                                    <path d="M12 16h.01" stroke-linecap="round" class="shield-dot"/>
+                                </svg>
+                                <div class="shield-pulse-ring"></div>
+                            </div>
+                            <div class="brand-title-group">
+                                <h1 class="login-brand-title">VULNTRIAGE</h1>
+                                <div class="login-brand-tagline">CYBER DEFENSE INTELLIGENCE</div>
+                            </div>
+                        </div>
+                        
+                        <p class="login-mission-statement">
+                            "Prioritize what matters."
+                        </p>
+                    </div>
+
+                    <!-- Futuristic Cyber-Security Shield & Network Illustration -->
+                    <div class="cyber-shield-illustration" aria-hidden="true">
+                        <div class="cyber-radar-ring ring-1"></div>
+                        <div class="cyber-radar-ring ring-2"></div>
+                        <div class="cyber-circuit-nodes">
+                            <div class="circuit-node node-1" title="CVSS v3.1 Engine"><span>CVSS</span></div>
+                            <div class="circuit-node node-2" title="CISA KEV Catalog"><span>KEV</span></div>
+                            <div class="circuit-node node-3" title="FIRST EPSS Likelihood"><span>EPSS</span></div>
+                            <div class="circuit-node node-4" title="Org Asset Context"><span>ASSETS</span></div>
+                            <svg class="circuit-lines-svg" viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M160 30 L60 80 L60 150 L160 195 L260 150 L260 80 Z" stroke="rgba(0, 242, 254, 0.25)" stroke-width="1.5" stroke-dasharray="4 2" />
+                                <path d="M160 50 L80 90 L80 140 L160 175 L240 140 L240 90 Z" stroke="rgba(0, 242, 254, 0.4)" stroke-width="1.5" />
+                                <line x1="160" y1="50" x2="160" y2="175" stroke="rgba(0, 242, 254, 0.3)" stroke-width="1" />
+                                <line x1="80" y1="90" x2="240" y2="140" stroke="rgba(0, 242, 254, 0.2)" stroke-width="1" />
+                                <line x1="80" y1="140" x2="240" y2="90" stroke="rgba(0, 242, 254, 0.2)" stroke-width="1" />
+                                <!-- Scanning laser beam -->
+                                <line x1="40" y1="110" x2="280" y2="110" stroke="var(--neon-cyan)" stroke-width="1.5" class="scan-beam-anim" />
+                            </svg>
+                            <div class="center-core-beacon">
+                                <span class="core-dot"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3 Value Points -->
+                    <div class="login-value-points">
+                        <div class="value-point-item">
+                            <div class="value-icon-box">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="value-text">
+                                <strong>Organisation-aware vulnerability prioritization</strong>
+                                <span>Tailors severity to matching critical assets and custom weighting criteria.</span>
+                            </div>
+                        </div>
+
+                        <div class="value-point-item">
+                            <div class="value-icon-box">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="value-text">
+                                <strong>Explainable risk scoring</strong>
+                                <span>Transparent composite formula attributing contributions across CVSS, KEV, and EPSS.</span>
+                            </div>
+                        </div>
+
+                        <div class="value-point-item">
+                            <div class="value-icon-box">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <div class="value-text">
+                                <strong>Actionable security intelligence</strong>
+                                <span>Eliminates alert fatigue with targeted Top-5 remediation blueprints.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security badges -->
+                    <div class="login-security-telemetry">
+                        <div class="telemetry-pill">
+                            <span class="telemetry-dot live"></span>
+                            <span class="telemetry-label font-share">TLS 1.3 / AES-256</span>
+                        </div>
+                        <div class="telemetry-pill">
+                            <span class="telemetry-dot live"></span>
+                            <span class="telemetry-label font-share">CISA KEV SYNCED</span>
+                        </div>
+                        <div class="telemetry-pill">
+                            <span class="telemetry-dot live"></span>
+                            <span class="telemetry-label font-share">EPSS v3 SCORING</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: GLASSMORPHISM LOGIN CARD -->
+                <div class="login-card-panel">
+                    <div class="login-glass-card">
+                        <!-- Decorative cyber corner brackets -->
+                        <div class="card-corner corner-tl"></div>
+                        <div class="card-corner corner-tr"></div>
+                        <div class="card-corner corner-bl"></div>
+                        <div class="card-corner corner-br"></div>
+
+                        <!-- Card Header -->
+                        <div class="login-card-header">
+                            <div class="sec-gateway-pill">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lock-pill-icon">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                                <span class="font-share">SECURE IDENTITY GATEWAY</span>
+                            </div>
+                            <h2 class="card-headline">Welcome back</h2>
+                            <p class="card-subheadline">Sign in to your security workspace</p>
+                        </div>
+
+                        <!-- General Alert Notification if any -->
+                        <div v-if="authErrors.general" class="auth-error-alert animated fadeIn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            <span>{{ authErrors.general }}</span>
+                        </div>
+
+                        <!-- Login Form -->
+                        <form class="login-form-body" @submit.prevent="handleLogin" novalidate>
+                            <!-- Email field -->
+                            <div class="cyber-form-group">
+                                <label for="login-email" class="cyber-form-label font-share">
+                                    <span>WORK EMAIL</span>
+                                    <span class="req-star">*</span>
+                                </label>
+                                <div class="cyber-input-wrapper" :class="{ 'has-error': authErrors.email, 'is-focused': authForm.email }">
+                                    <div class="input-icon-slot">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                            <polyline points="22,6 12,13 2,6"></polyline>
+                                        </svg>
+                                    </div>
+                                    <input 
+                                        id="login-email"
+                                        type="email" 
+                                        class="cyber-input-field" 
+                                        placeholder="Enter your email"
+                                        v-model="authForm.email"
+                                        :disabled="authLoading"
+                                        autocomplete="email"
+                                        @input="authErrors.email = ''"
+                                    />
+                                </div>
+                                <transition name="fade">
+                                    <div v-if="authErrors.email" class="cyber-field-error font-share">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                        <span>{{ authErrors.email }}</span>
+                                    </div>
+                                </transition>
+                            </div>
+
+                            <!-- Password field -->
+                            <div class="cyber-form-group">
+                                <div class="label-with-aside">
+                                    <label for="login-password" class="cyber-form-label font-share">
+                                        <span>PASSWORD</span>
+                                        <span class="req-star">*</span>
+                                    </label>
+                                    <a href="#" @click.prevent="openForgotModal" class="cyber-link forgot-link font-share" tabindex="0">Forgot password?</a>
+                                </div>
+                                <div class="cyber-input-wrapper" :class="{ 'has-error': authErrors.password }">
+                                    <div class="input-icon-slot">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                        </svg>
+                                    </div>
+                                    <input 
+                                        id="login-password"
+                                        :type="authForm.showPassword ? 'text' : 'password'" 
+                                        class="cyber-input-field" 
+                                        placeholder="Enter your password"
+                                        v-model="authForm.password"
+                                        :disabled="authLoading"
+                                        autocomplete="current-password"
+                                        @input="authErrors.password = ''"
+                                    />
+                                    <button 
+                                        type="button" 
+                                        class="password-toggle-btn" 
+                                        @click="togglePasswordVisibility"
+                                        :title="authForm.showPassword ? 'Hide password' : 'Show password'"
+                                        tabindex="0"
+                                    >
+                                        <svg v-if="!authForm.showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                        <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <transition name="fade">
+                                    <div v-if="authErrors.password" class="cyber-field-error font-share">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                        <span>{{ authErrors.password }}</span>
+                                    </div>
+                                </transition>
+                            </div>
+
+                            <!-- Options Row (Remember Me) -->
+                            <div class="form-options-row">
+                                <label class="cyber-checkbox-label">
+                                    <input type="checkbox" v-model="authForm.rememberMe" class="hidden-checkbox">
+                                    <span class="custom-checkbox">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                    </span>
+                                    <span class="checkbox-text">Remember me</span>
+                                </label>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <button 
+                                type="submit" 
+                                class="login-submit-btn"
+                                :class="{ 'btn-loading': authLoading, 'btn-success': authSuccess }"
+                                :disabled="authLoading"
+                            >
+                                <span v-if="authLoading" class="btn-content-loading">
+                                    <span class="spinner-dot"></span>
+                                    <span class="font-share">AUTHENTICATING...</span>
+                                </span>
+                                <span v-else-if="authSuccess" class="btn-content-success">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="btn-check-icon">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                    <span class="font-share">ACCESS GRANTED</span>
+                                </span>
+                                <span v-else class="btn-content-default">
+                                    <span>Sign In</span>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-arrow-icon">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12 5 19 12 12 19"></polyline>
+                                    </svg>
+                                </span>
+                            </button>
+
+                            <!-- Fast-fill Demo Credential Helper -->
+                            <div class="demo-access-helper">
+                                <div class="demo-info-left">
+                                    <span class="demo-lbl font-share">DEMO ACCOUNT</span>
+                                    <span class="demo-cred font-mono">analyst@vulntriage.sec</span>
+                                </div>
+                                <button type="button" class="demo-fast-fill-btn font-share" @click="fastFillDemo" :disabled="authLoading" title="Fill demo analyst credentials">
+                                    AUTO-FILL
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Card Footer: Don't have an account? -->
+                        <div class="login-card-footer">
+                            <span class="footer-prompt">Don't have an account?</span>
+                            <a href="#" @click.prevent="openSignupModal" class="cyber-link create-acc-link font-heading">Create account</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State Overlay for Authenticated Session -->
+        <div v-if="isAuthenticated && loading" class="overlay loading-overlay">
             <div class="loader-container">
                 <div class="cyber-ring"></div>
                 <div class="loader-text">ESTABLISHING SECURED SEC-NET CONNECTION...</div>
@@ -24,8 +315,8 @@
             </div>
         </div>
 
-        <!-- Error State Overlay -->
-        <div v-if="error" class="overlay error-overlay">
+        <!-- Error State Overlay for Authenticated Session -->
+        <div v-if="isAuthenticated && error" class="overlay error-overlay">
             <div class="error-container">
                 <div class="error-icon">⚠️</div>
                 <div class="error-title">SYSTEM CONNECTION FAILURE</div>
@@ -34,7 +325,8 @@
             </div>
         </div>
 
-        <div v-if="!loading && !error" class="app-container">
+        <!-- MAIN AUTHENTICATED WORKSPACE CONTAINER -->
+        <div v-if="isAuthenticated && !loading && !error" class="app-container">
             
             <!-- LEFT SIDEBAR -->
             <aside class="sidebar" :class="{ 'sidebar-open': mobileLayoutOpen }">
@@ -70,12 +362,26 @@
                 </nav>
                 
                 <div class="sidebar-footer">
-                    <div class="footer-lbl">SEC-NET STATUS</div>
+                    <div class="footer-user-section">
+                        <div class="footer-lbl">OPERATOR</div>
+                        <div class="footer-user-row">
+                            <span class="status-indicator online"></span>
+                            <span class="footer-user-name" :title="currentUser.email">{{ currentUser.name }}</span>
+                        </div>
+                    </div>
+                    <div class="footer-lbl" style="margin-top: 6px;">SEC-NET STATUS</div>
                     <div class="footer-val">
                         <span class="status-indicator online"></span>
                         <span>ONLINE & SECURE</span>
                     </div>
-                    <div class="data-snapshot">Snapshot: vulnerabilities.csv</div>
+                    <button class="sidebar-disconnect-btn font-share" @click="handleLogout" title="Terminate current secure session">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="logout-icon-svg">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        <span>DISCONNECT</span>
+                    </button>
                 </div>
             </aside>
 
@@ -105,6 +411,15 @@
                     </div>
                     
                     <div class="header-right">
+                        <!-- User Clearance Badge -->
+                        <div class="header-operator-card" :title="'Clearance: ' + currentUser.clearance">
+                            <span class="operator-avatar-icon">🛡️</span>
+                            <div class="operator-meta">
+                                <span class="operator-name">{{ currentUser.name }}</span>
+                                <span class="operator-clearance font-share">{{ currentUser.clearance }}</span>
+                            </div>
+                        </div>
+
                         <!-- Theme Toggle (Futuristic Style) -->
                         <button class="header-action-btn" title="System Theme Toggle" @click="toggleTheme">
                             <svg v-if="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -120,6 +435,15 @@
                             </svg>
                             <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Logout Button in Top Header -->
+                        <button class="header-action-btn logout-top-btn" title="Sign Out of Session" @click="handleLogout">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
                             </svg>
                         </button>
                         
@@ -909,6 +1233,149 @@
                         <span><strong>TREATMENT:</strong> Review this vulnerability and verify the affected product status.</span>
                     </div>
                     <button class="sys-btn md-close-bottom-btn font-share" @click="closeModal">DISMISS</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             FORGOT PASSWORD / SSO RESET MODAL
+             ========================================== -->
+        <div v-if="showForgotModal" class="modal-backdrop animated fadeIn" @click.self="closeForgotModal">
+            <div class="modal-dialog auth-submodal">
+                <div class="modal-header">
+                    <div class="modal-title-lockup">
+                        <span class="auth-modal-badge font-share">SEC-NET IDENTITY RECOVERY</span>
+                        <h3 class="modal-title">Password Reset / SSO Recovery</h3>
+                    </div>
+                    <button class="modal-close-btn" @click="closeForgotModal" title="Close modal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div v-if="!forgotSubmitted">
+                        <p class="auth-modal-desc">
+                            Enter your registered enterprise security email address. An encrypted access recovery token and instructions will be dispatched to your corporate mailbox or Security Operations Director.
+                        </p>
+
+                        <div class="cyber-form-group" style="margin-top: 18px;">
+                            <label class="cyber-form-label font-share">WORK EMAIL ADDRESS</label>
+                            <div class="cyber-input-wrapper">
+                                <div class="input-icon-slot">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                        <polyline points="22,6 12,13 2,6"></polyline>
+                                    </svg>
+                                </div>
+                                <input 
+                                    type="email" 
+                                    class="cyber-input-field" 
+                                    placeholder="e.g. analyst@vulntriage.sec" 
+                                    v-model="forgotEmail"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="auth-sso-notice">
+                            <span class="sso-icon">ℹ️</span>
+                            <span>Enterprise SSO users: Please contact your Active Directory or Okta SecOps Administrator directly if hardware tokens are locked.</span>
+                        </div>
+                    </div>
+
+                    <div v-else class="auth-modal-success animated fadeIn">
+                        <div class="success-icon-badge">✓</div>
+                        <h4 class="success-headline font-heading">Recovery Dispatch Transmitted</h4>
+                        <p class="success-msg">
+                            If an active security profile exists for <strong>{{ forgotEmail }}</strong>, an encrypted recovery payload has been routed to your endpoint.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button v-if="!forgotSubmitted" class="sys-btn" @click="closeForgotModal">CANCEL</button>
+                    <button v-if="!forgotSubmitted" class="login-submit-btn modal-action-btn font-share" @click="submitForgot">TRANSMIT RECOVERY TOKEN</button>
+                    <button v-else class="sys-btn font-share" @click="closeForgotModal">DISMISS</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             ENTERPRISE ACCOUNT PROVISIONING MODAL
+             ========================================== -->
+        <div v-if="showSignupModal" class="modal-backdrop animated fadeIn" @click.self="closeSignupModal">
+            <div class="modal-dialog auth-submodal">
+                <div class="modal-header">
+                    <div class="modal-title-lockup">
+                        <span class="auth-modal-badge font-share">ACCESS PROVISIONING</span>
+                        <h3 class="modal-title">Request Enterprise Clearance</h3>
+                    </div>
+                    <button class="modal-close-btn" @click="closeSignupModal" title="Close modal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div v-if="!signupSubmitted">
+                        <p class="auth-modal-desc">
+                            VULNTRIAGE operates as an enterprise-grade defense intelligence platform. New analyst credentials require verified clearance authorization.
+                        </p>
+
+                        <div class="cyber-form-group" style="margin-top: 14px;">
+                            <label class="cyber-form-label font-share">ANALYST FULL NAME</label>
+                            <div class="cyber-input-wrapper">
+                                <input 
+                                    type="text" 
+                                    class="cyber-input-field no-icon" 
+                                    placeholder="e.g. Alex Morgan" 
+                                    v-model="signupForm.name"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="cyber-form-group">
+                            <label class="cyber-form-label font-share">ENTERPRISE SEC-NET EMAIL</label>
+                            <div class="cyber-input-wrapper">
+                                <input 
+                                    type="email" 
+                                    class="cyber-input-field no-icon" 
+                                    placeholder="e.g. alex.morgan@enterprise.org" 
+                                    v-model="signupForm.email"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="cyber-form-group">
+                            <label class="cyber-form-label font-share">ASSIGNED ORGANIZATION CONTEXT</label>
+                            <div class="cyber-input-wrapper">
+                                <select v-model="signupForm.organization" class="cyber-select-field">
+                                    <option value="ORG-001 (Global Financial Services)">ORG-001 (Global Financial Services)</option>
+                                    <option value="ORG-002 (Healthcare Systems)">ORG-002 (Healthcare Systems)</option>
+                                    <option value="ORG-003 (Cloud Infrastructure Provider)">ORG-003 (Cloud Infrastructure Provider)</option>
+                                    <option value="ORG-004 (Federal Defense Agency)">ORG-004 (Federal Defense Agency)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="auth-modal-success animated fadeIn">
+                        <div class="success-icon-badge">✓</div>
+                        <h4 class="success-headline font-heading">Provisioning Request Submitted</h4>
+                        <p class="success-msg">
+                            Your clearance application for <strong>{{ signupForm.email }}</strong> has been queued for authorization by the Security Administrator.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button v-if="!signupSubmitted" class="sys-btn" @click="closeSignupModal">CANCEL</button>
+                    <button v-if="!signupSubmitted" class="login-submit-btn modal-action-btn font-share" @click="submitSignup">SUBMIT REQUEST</button>
+                    <button v-else class="sys-btn font-share" @click="closeSignupModal">DISMISS</button>
                 </div>
             </div>
         </div>
