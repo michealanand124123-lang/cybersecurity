@@ -1,0 +1,11 @@
+128207383
+"WA_STORAGE_ROOT_NODE": { 
+   "kCallingHistoryCallStateV1RecordType": { 
+      "WA_STORAGE_TIMESTAMP": "1787146702158",
+      "call_participants_identifier": "1667626496",
+      "call_participants_num": "2",
+      "call_end_reconnecting": "0",
+      "call_end_by_user_hangup": "0",
+      "call_duration_ms":     "0"
+   }
+}

@@ -1,0 +1,12 @@
+StudentID,Name,Age,Marks,Department,Attendance_%,Admission_Date
+101,Aditi Sharma,21,78.5,CSE,85.0,2023-06-01
+102,Rahul  Verma,22,,ECE,90.0,01/06/2023
+103, Priya Nair,,88.0,cse,78.0,2023-06-02
+104,Karthik R,23,92.5,MECH,,2023-06-01
+105,Sneha Iyer,twenty-two,85,ece,88.0,2023/06/03
+106,Mohammed Ali,24,76.0,CSE ,95.0,06-01-2023
+107,Divya,21,,EEE,60.0,2023-06-04
+108,Arjun Singh,,95.0,mech,,
+109,,25,60.0,CSE,99.0,2023-06-05
+110,Lakshmi P,22,88,ECE,91.0,2023-06-01
+105,Sneha Iyer,22,85.0,ece,88.0,2023/06/03
