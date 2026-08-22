@@ -76,8 +76,6 @@ VULNTRIAGE implements a deterministic, multi-stage processing pipeline that tran
 - **Practitioner Reference Validation:** Built-in validation module comparing calculated algorithmic rankings against reference human practitioner rankings without altering scoring formulas.
 - **Multi-Organisation Support:** Pre-configured profiles for Banking, Cloud Technology, and Critical Infrastructure sectors.
 - **CyberTech Enterprise Dashboard:** Responsive web interface featuring real-time organization switching, threat metrics, collapsible vulnerability cards, filterable findings table, and full contextual analysis modals.
-- **AI Threat Intelligence & Remediation Playbooks:** One-click generation of CISO executive briefings, adversary attack vectors, step-by-step mitigation plans, and SIEM detection signatures powered by Featherless.ai open-source LLMs (Llama 3.1, Mistral, Qwen, DeepSeek).
-- **Interactive AI Cyber Copilot:** Real-time conversational drawer for instant incident response Q&A and emergency mitigation workarounds.
 - **Secure Authentication UI:** Full-screen responsive CyberTech login experience with form validation, password visibility toggle, session persistence, and disconnect controls.
 - **Dual Execution Modes:** Available both as a standalone CLI analysis tool and as a lightweight web application.
 
@@ -180,7 +178,6 @@ cybersecurity/
 │   ├── profiles.json                 # Organization profiles mirror
 │   └── vulnerabilities.csv           # Vulnerability records corpus
 ├── src/
-│   ├── ai_analyst.py                 # Featherless.ai LLM client & prompt templates
 │   ├── data_loader.py                # Dataset ingestion & schema validation
 │   ├── main.py                       # CLI execution entry point
 │   ├── matcher.py                    # Product string normalisation & matching
