@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VULNTRIAGE - Cyber Defense Intelligence</title>
+    <!-- Vue 3 CDN (Global Build) -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="index.css">
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Share+Tech+Mono&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="cyber-theme">
+    <div id="app" v-cloak>
+        
+        <!-- Loading State Overlay -->
+        <div v-if="loading" class="overlay loading-overlay">
+            <div class="loader-container">
+                <div class="cyber-ring"></div>
+                <div class="loader-text">ESTABLISHING SECURED SEC-NET CONNECTION...</div>
+                <div class="loader-subtext">Retrieving vulnerability data packages</div>
+            </div>
+        </div>
+
+        <!-- Error State Overlay -->
+        <div v-if="error" class="overlay error-overlay">
+            <div class="error-container">
+                <div class="error-icon">⚠️</div>
+                <div class="error-title">SYSTEM CONNECTION FAILURE</div>
+                <div class="error-message">{{ error }}</div>
+                <button class="sys-btn" @click="fetchData">RECONNECT</button>
+            </div>
+        </div>
+
+        <div v-if="!loading && !error" class="app-container">
+            
+            <!-- LEFT SIDEBAR -->
+            <aside class="sidebar" :class="{ 'sidebar-open': mobileLayoutOpen }">
+                <div class="sidebar-logo">
+                    <div class="logo-shield">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="M12 8v4" stroke-linecap="round"/>
+                            <path d="M12 16h.01" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1 class="brand-title">VULNTRIAGE</h1>
+                        <span class="brand-subtitle">CYBER INTELLIGENCE</span>
+                    </div>
+                    <button class="close-sidebar-btn" @click="mobileLayoutOpen = false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                
+                <nav class="sidebar-nav">
+                    <ul>
+                        <li v-for="item in navItems" :key="item.id">
+                            <a href="#" :class="{ active: currentPage === item.id }" @click.prevent="setPage(item.id)">
+                                <span class="nav-icon" v-html="item.icon"></span>
+                                <span class="nav-label">{{ item.label }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                
+                <div class="sidebar-footer">
+                    <div class="footer-lbl">SEC-NET STATUS</div>
+                    <div class="footer-val">
+                        <span class="status-indicator online"></span>
+                        <span>ONLINE & SECURE</span>
+                    </div>
+                    <div class="data-snapshot">Snapshot: vulnerabilities.csv</div>
+                </div>
+            </aside>
+
+            <!-- MAIN SCREEN CONTAINER -->
+            <div class="main-screen">
+                
+                <!-- TOP HEADER -->
+                <header class="top-header">
+                    <div class="header-left">
+                        <button class="menu-hamburger-btn" @click="mobileLayoutOpen = true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                            </svg>
+                        </button>
+                        <div class="selected-org-display">
+                            <div class="meta-lbl">TARGET ORGANIZATION</div>
+                            <div class="org-selector-wrapper">
+                                <select v-model="selectedOrgId" class="org-dropdown-select" @change="onOrgChange">
+                                    <option v-for="org in backendData.organizations" :key="org.org_id" :value="org.org_id">
+                                        {{ org.name }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="header-right">
+                        <!-- Theme Toggle (Futuristic Style) -->
+                        <button class="header-action-btn" title="System Theme Toggle" @click="toggleTheme">
+                            <svg v-if="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="5"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                            </svg>
+                            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                            </svg>
+                        </button>
+                        
+                        <!-- Validation Indicator -->
+                        <div class="sec-badge" :title="'Target context matching operational: ' + currentOrg.name">
+                            <span class="badge-dot animate-pulse"></span>
+                            <span class="badge-txt">{{ currentOrg.sector.toUpperCase() }}</span>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- SCROLLABLE CONTENT BODY -->
+                <main class="content-body">
+                    
+                    <!-- DASHBOARD PAGE -->
+                    <div v-if="currentPage === 'dashboard'" class="page-content animated fadeIn">
+                        
+                        <!-- Summary Cards -->
+                        <section class="summary-cards-grid">
+                            <div class="stat-card">
+                                <div class="stat-icon threat-lvl">🔥</div>
+                                <div class="stat-info">
+                                    <span class="stat-lbl">CRITICAL ACTIONS</span>
+                                    <h3 class="stat-val">5</h3>
+                                    <span class="stat-meta">Vulnerabilities Prioritized</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon matches-lvl">🔎</div>
+                                <div class="stat-info">
+                                    <span class="stat-lbl">MATCHED RESULTS</span>
+                                    <h3 class="stat-val">{{ currentOrgData.match_report.matched_count }}</h3>
+                                    <span class="stat-meta">On Critical Products</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon kev-lvl">⚠️</div>
+                                <div class="stat-info">
+                                    <span class="stat-lbl">KEV EXPLOITED</span>
+                                    <h3 class="stat-val">{{ top5KevCount }}</h3>
+                                    <span class="stat-meta">Active exploits in Top 5</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon risk-lvl">📊</div>
+                                <div class="stat-info">
+                                    <span class="stat-lbl">AVG RISK SCORE</span>
+                                    <h3 class="stat-val">{{ averageRiskScore }}</h3>
+                                    <span class="stat-meta">Across top matched threats</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <div class="dashboard-layouts">
+                            <!-- Left: Top 5 Priorities list -->
+                            <div class="triage-pane">
+                                <div class="pane-header">
+                                    <div class="header-titles">
+                                        <h2 class="pane-title">PRIORITIZED THREAT VECTORS (TOP 5)</h2>
+                                        <p class="pane-subtitle">Risk scored specifically for {{ currentOrg.name }} asset profiling.</p>
+                                    </div>
+                                    <div class="pane-badge">MAX RELEVANCE</div>
+                                </div>
+
+                                <div class="top-vulnerabilities-list">
+                                    <div v-for="(vuln, idx) in currentOrgData.top_5" :key="vuln.cve_id + '-' + vuln.product_name" class="vuln-collapsible-card">
+                                        <div class="vuln-card-main" @click="toggleVulnExpand(vuln.cve_id + '-' + vuln.product_name)">
+                                            <div class="vuln-rank-badge">0{{ idx + 1 }}</div>
+                                            <div class="vuln-ident">
+                                                <h4 class="vuln-cve">{{ vuln.cve_id }}</h4>
+                                                <span class="vuln-product-chip">{{ vuln.product_name }}</span>
+                                            </div>
+                                            <div class="vuln-metrics-row">
+                                                <div class="mini-score-metric">
+                                                    <span class="mini-lbl">CVSS</span>
+                                                    <span class="mini-val" :class="getSeverityClass(vuln.cvss_base_score)">
+                                                        {{ parseFloat(vuln.cvss_base_score).toFixed(1) }}
+                                                    </span>
+                                                </div>
+                                                <div class="mini-score-metric">
+                                                    <span class="mini-lbl">KEV</span>
+                                                    <span class="mini-val" :class="{ 'warning-glow': vuln.cisa_kev }">
+                                                        {{ vuln.cisa_kev ? 'ACTIVE' : 'NONE' }}
+                                                    </span>
+                                                </div>
+                                                <div class="mini-score-metric">
+                                                    <span class="mini-lbl">EPSS</span>
+                                                    <span class="mini-val">{{ parseFloat(vuln.first_epss).toFixed(4) }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="vuln-total-score">
+                                                <span class="score-lbl">RISK SCORE</span>
+                                                <span class="score-value">{{ parseFloat(vuln.risk_score).toFixed(6) }}</span>
+                                            </div>
+                                            <div class="expand-arrow" :class="{ active: isExpanded(vuln.cve_id + '-' + vuln.product_name) }">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Collapsible Content -->
+                                        <div v-show="isExpanded(vuln.cve_id + '-' + vuln.product_name)" class="vuln-card-collapsed-content">
+                                            <div class="collapsed-grid">
+                                                
+                                                <!-- Score Breakdown (Visual indicators) -->
+                                                <div class="breakdown-sector">
+                                                    <h5 class="sector-head-title">RISK SCORE CONTRIBUTION BREAKDOWN</h5>
+                                                    <div class="metric-meter-bars">
+                                                        <!-- CVSS contributor -->
+                                                        <div class="meter-bar-item">
+                                                            <div class="bar-lbls">
+                                                                <span>CVSS Normalized Base Weight ({{ currentOrg.weight_modifiers.cvss_weight }} &times; {{ (vuln.cvss_base_score / 10).toFixed(2) }})</span>
+                                                                <span class="contr-val">+{{ parseFloat(vuln.cvss_contribution).toFixed(6) }}</span>
+                                                            </div>
+                                                            <div class="meter-backdrop">
+                                                                <div class="meter-fill cvss-fill" :style="{ width: percentScale(vuln.cvss_contribution, currentOrg.weight_modifiers.cvss_weight) }"></div>
+                                                            </div>
+                                                        </div>
+                                                        <!-- KEV contributor -->
+                                                        <div class="meter-bar-item">
+                                                            <div class="bar-lbls">
+                                                                <span>CISA KEV Listing Weight ({{ currentOrg.weight_modifiers.cisa_kev_weight }} &times; {{ vuln.cisa_kev ? '1.0' : '0.0' }})</span>
+                                                                <span class="contr-val">+{{ parseFloat(vuln.kev_contribution).toFixed(6) }}</span>
+                                                            </div>
+                                                            <div class="meter-backdrop">
+                                                                <div class="meter-fill kev-fill" :style="{ width: percentScale(vuln.kev_contribution, currentOrg.weight_modifiers.cisa_kev_weight) }"></div>
+                                                            </div>
+                                                        </div>
+                                                        <!-- EPSS contributor -->
+                                                        <div class="meter-bar-item">
+                                                            <div class="bar-lbls">
+                                                                <span>FIRST EPSS Exploit Probability Weight ({{ currentOrg.weight_modifiers.first_epss_weight }} &times; {{ parseFloat(vuln.first_epss).toFixed(5) }})</span>
+                                                                <span class="contr-val">+{{ parseFloat(vuln.epss_contribution).toFixed(6) }}</span>
+                                                            </div>
+                                                            <div class="meter-backdrop">
+                                                                <div class="meter-fill epss-fill" :style="{ width: percentScale(vuln.epss_contribution, currentOrg.weight_modifiers.first_epss_weight) }"></div>
+                                                            </div>
+                                                        </div>
+                                                        <!-- Total Sum -->
+                                                        <div class="meter-bar-total">
+                                                            <span>AGGREGATED CONTEXTUAL RISK SCORE</span>
+                                                            <span class="total-final-val">{{ parseFloat(vuln.risk_score).toFixed(6) }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Text description justifications -->
+                                                <div class="why-justify-sector">
+                                                    <h5 class="sector-head-title">CONTEXTUAL RISKS ANALYSIS</h5>
+                                                    <ul class="why-points-list">
+                                                        <li>
+                                                            <span class="point-status check font-share">MATCHED</span>
+                                                            <span class="point-desc">Affected asset product matches one of the critical organization assets: <strong>{{ vuln.product_name }}</strong>.</span>
+                                                        </li>
+                                                        <li>
+                                                            <span class="point-status info font-share">CVSS RATING</span>
+                                                            <span class="point-desc">Base Severity score is <strong>{{ vuln.cvss_base_score }}</strong> ({{ getSeverityLabel(vuln.cvss_base_score) }} technical risk).</span>
+                                                        </li>
+                                                        <li>
+                                                            <span class="point-status font-share" :class="vuln.cisa_kev ? 'warn' : 'check'">
+                                                                {{ vuln.cisa_kev ? 'EXPLAIN-ACTIVE' : 'EXPLAIN-NONE' }}
+                                                            </span>
+                                                            <span class="point-desc">
+                                                                {{ vuln.cisa_kev ? 'Known exploited: this vulnerability is actively targeted in production environments.' : 'No active exploit history is currently documented on the CISA KEV list.' }}
+                                                            </span>
+                                                        </li>
+                                                        <li>
+                                                            <span class="point-status info font-share">EPSS PROX</span>
+                                                            <span class="point-desc">Exploitation probability is rated at <strong>{{ (vuln.first_epss * 100).toFixed(4) }}%</strong> according to historical observations.</span>
+                                                        </li>
+                                                    </ul>
+                                                    <div class="action-panel">
+                                                        <span class="action-lbl">REVENUE RISK ACTION PLAN:</span>
+                                                        <p class="action-desc">Review this vulnerability and verify the affected product status.</p>
+                                                        <button class="sys-btn border-glow-btn font-share sm-btn" @click.stop="openModal(vuln)">INSPECT DETAIL LOGS</button>
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Organization context Panel & Risk charts -->
+                            <div class="context-pane">
+                                <div class="side-panel-card">
+                                    <div class="card-bar"></div>
+                                    <h3 class="side-panel-title font-share">ASSET CONTEXT PROFILE</h3>
+                                    
+                                    <div class="side-org-details">
+                                        <div class="detail-row">
+                                            <span class="row-lbl">Organization</span>
+                                            <span class="row-val text-neon">{{ currentOrg.name }}</span>
+                                        </div>
+                                        <div class="detail-row">
+                                            <span class="row-lbl">Industr. Sector</span>
+                                            <span class="row-val">{{ currentOrg.sector }}</span>
+                                        </div>
+                                        <div class="detail-row">
+                                            <span class="row-lbl font-share">RISK APPETITE</span>
+                                            <span class="row-val appetite-badge" :data-risk="currentOrg.risk_appetite">
+                                                {{ currentOrg.risk_appetite.toUpperCase() }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <h4 class="sub-panel-title font-share">TRIAGE PRIORITY WEIGHTS</h4>
+                                    <div class="weights-diagram-widget">
+                                        <div class="weight-w-item">
+                                            <span class="w-lbl">CVSS Weight</span>
+                                            <span class="w-val neon-azure">{{ currentOrg.weight_modifiers.cvss_weight }}</span>
+                                        </div>
+                                        <div class="weight-w-item">
+                                            <span class="w-lbl">CISA KEV Weight</span>
+                                            <span class="w-val neon-amber">{{ currentOrg.weight_modifiers.cisa_kev_weight }}</span>
+                                        </div>
+                                        <div class="weight-w-item">
+                                            <span class="w-lbl">EPSS Weight</span>
+                                            <span class="w-val neon-teal">{{ currentOrg.weight_modifiers.first_epss_weight }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <h4 class="sub-panel-title font-share">MONITORED ASSET STACK</h4>
+                                    <ul class="asset-chips-list">
+                                        <li v-for="product in currentOrg.critical_products" :key="product">
+                                            <span class="asset-shield-icon">🛡️</span>
+                                            <span class="asset-name">{{ product }}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <!-- Risk Score Distribution mini chart -->
+                                <div class="side-panel-card">
+                                    <h3 class="side-panel-title font-share">TOP 5 RISK SCORES PROFILE</h3>
+                                    <div class="svg-bar-chart-w">
+                                        <svg viewBox="0 0 200 120" class="svg-graph">
+                                            <!-- Grid lines -->
+                                            <line x1="20" y1="10" x2="190" y2="10" stroke="rgba(0, 242, 254, 0.05)" />
+                                            <line x1="20" y1="40" x2="190" y2="40" stroke="rgba(0, 242, 254, 0.05)" />
+                                            <line x1="20" y1="70" x2="190" y2="70" stroke="rgba(0, 242, 254, 0.05)" />
+                                            <line x1="20" y1="100" x2="190" y2="100" stroke="rgba(255, 255, 255, 0.1)" />
+                                            
+                                            <!-- Bars -->
+                                            <g v-for="(v, idx) in currentOrgData.top_5" :key="v.cve_id + '-' + v.product_name">
+                                                <!-- Bar backdrop -->
+                                                <rect :x="30 + idx * 32" y="10" width="16" height="90" fill="rgba(255,255,255,0.02)" />
+                                                <!-- Active Bar -->
+                                                <rect :x="30 + idx * 32" :y="100 - (v.risk_score * 90)" width="16" :height="v.risk_score * 90" class="graph-bar-active" fill="url(#blue-cyan-grad)" />
+                                                <!-- Labels -->
+                                                <text :x="38 + idx * 32" y="112" class="graph-txt" text-anchor="middle">R0{{ idx + 1 }}</text>
+                                                <!-- Score tooltip display -->
+                                                <text :x="38 + idx * 32" :y="95 - (v.risk_score * 90) <= 8 ? 8 : 95 - (v.risk_score * 90)" class="graph-score-txt" text-anchor="middle">
+                                                    {{ v.risk_score.toFixed(2) }}
+                                                </text>
+                                            </g>
+
+                                            <!-- Gradients definitions -->
+                                            <defs>
+                                                <linearGradient id="blue-cyan-grad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stop-color="#00f2fe" />
+                                                    <stop offset="100%" stop-color="#0072ff" />
+                                                </linearGradient>
+                                            </defs>
+                                        </svg>
+                                    </div>
+                                    <p class="chart-desc-meta text-center">Score representation of prioritized threat ranks (R01 - R05).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ORGANIZATIONS PAGE -->
+                    <div v-if="currentPage === 'organizations'" class="page-content animated fadeIn">
+                        <div class="full-view-header">
+                            <h2 class="section-top-title font-share">PROTECTED ASSET INFRASTRUCTURE PROFILES</h2>
+                            <p class="section-top-desc">Dynamic validation profiling loaded from organizations.json repository.</p>
+                        </div>
+                        
+                        <div class="orgs-profiles-row">
+                            <div v-for="org in backendData.organizations" :key="org.org_id" class="org-profile-full-card" :class="{ active: selectedOrgId === org.org_id }" @click="selectedOrgId = org.org_id; onOrgChange()">
+                                <div class="org-card-overlay-indicator" v-if="selectedOrgId === org.org_id">SELECTED PROFILE</div>
+                                <h3 class="org-profile-c-name text-neon">{{ org.name }}</h3>
+                                <div class="org-profile-c-id">Entity Reference: {{ org.org_id }}</div>
+                                
+                                <div class="profile-stats-mini-sec-box">
+                                    <div class="sub-stat-lbl font-share">Sector Context</div>
+                                    <div class="sub-stat-val">{{ org.sector }}</div>
+                                </div>
+                                
+                                <div class="profile-stats-mini-sec-box">
+                                    <div class="sub-stat-lbl font-share">Appeals Level</div>
+                                    <div class="sub-stat-val inline-appetite" :data-risk="org.risk_appetite">{{ org.risk_appetite }}</div>
+                                </div>
+                                
+                                <div class="profile-divider"></div>
+                                
+                                <h4 class="profile-tbl-title font-share">SCORING COEFFICIENTS</h4>
+                                <div class="profile-weights-grid">
+                                    <div class="w-val-box">
+                                        <span class="w-val-num">{{ org.weight_modifiers.cvss_weight }}</span>
+                                        <span class="w-val-name">CVSS BASE</span>
+                                    </div>
+                                    <div class="w-val-box">
+                                        <span class="w-val-num">{{ org.weight_modifiers.cisa_kev_weight }}</span>
+                                        <span class="w-val-name font-share">CISA KEV</span>
+                                    </div>
+                                    <div class="w-val-box">
+                                        <span class="w-val-num">{{ org.weight_modifiers.first_epss_weight }}</span>
+                                        <span class="w-val-name">FIRST EPSS</span>
+                                    </div>
+                                </div>
+                                
+                                <h4 class="profile-tbl-title font-share">CRITICAL PRODUCTS STACK</h4>
+                                <ul class="products-list-p">
+                                    <li v-for="p in org.critical_products" :key="p">
+                                        <span class="chk-icon">✓</span>
+                                        <span>{{ p }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TOP VULNERABILITIES PAGE -->
+                    <div v-if="currentPage === 'top_vulns'" class="page-content animated fadeIn">
+                        <div class="full-view-header">
+                            <h2 class="section-top-title font-share">TOP SCORING PRIORITIES MATRIX</h2>
+                            <p class="section-top-desc">Currently evaluated security triage for active organization selector: <strong>{{ currentOrg.name }}</strong></p>
+                        </div>
+                        
+                        <div class="top-list-full-layout">
+                            <div v-for="(v, index) in currentOrgData.top_5" :key="v.cve_id + '-' + v.product_name" class="full-priority-card">
+                                <div class="p-card-header">
+                                    <div class="header-cve-group">
+                                        <div class="p-rank font-share">0{{ index + 1 }}</div>
+                                        <div>
+                                            <h3 class="p-cve-title">{{ v.cve_id }}</h3>
+                                            <span class="p-prod-lbl">Impacted Product: <strong>{{ v.product_name }}</strong></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="p-score-box">
+                                        <span class="p-score-lbl">CONTEXT RISK SCORE</span>
+                                        <span class="p-score-num text-neon">{{ parseFloat(v.risk_score).toFixed(6) }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="p-card-body">
+                                    <div class="p-metrics-grid">
+                                        <div class="p-metric-cell">
+                                            <div class="c-val-lbl">CVSS Base Rating</div>
+                                            <span class="c-val-score" :class="getSeverityClass(v.cvss_base_score)">{{ v.cvss_base_score }}</span>
+                                            <span class="c-val-meta">{{ getSeverityLabel(v.cvss_base_score) }} Technical Severity</span>
+                                        </div>
+                                        <div class="p-metric-cell">
+                                            <div class="c-val-lbl">CISA KEV Target Info</div>
+                                            <span class="c-val-score" :class="{ 'warning-glow-inline': v.cisa_kev }">
+                                                {{ v.cisa_kev ? 'CONFIRMED' : 'NO ACTIVE LISTING' }}
+                                            </span>
+                                            <span class="c-val-meta">Listed Exploitations Database</span>
+                                        </div>
+                                        <div class="p-metric-cell">
+                                            <div class="c-val-lbl">FIRST EPSS Index</div>
+                                            <span class="c-val-score font-share">{{ parseFloat(v.first_epss).toFixed(5) }}</span>
+                                            <span class="c-val-meta">{{ (v.first_epss * 100).toFixed(3) }}% Exploits Likelihood</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-contributions-inline-progress">
+                                        <h4 class="progress-lbl font-share">AGGREGATING CONTEXTUAL RISKS</h4>
+                                        <div class="aggregated-progress-bar">
+                                            <div class="agg-chunk cvss-bg" :style="{ width: (v.cvss_contribution / v.risk_score * 100) + '%' }" :title="'CVSS contribution: ' + v.cvss_contribution"></div>
+                                            <div class="agg-chunk kev-bg" :style="{ width: (v.kev_contribution / v.risk_score * 100) + '%' }" :title="'KEV contribution: ' + v.kev_contribution"></div>
+                                            <div class="agg-chunk epss-bg" :style="{ width: (v.epss_contribution / v.risk_score * 100) + '%' }" :title="'EPSS contribution: ' + v.epss_contribution"></div>
+                                        </div>
+                                        <div class="progress-labels">
+                                            <span><span class="dot-c cvss-dot"></span>CVSS: +{{ parseFloat(v.cvss_contribution).toFixed(4) }}</span>
+                                            <span><span class="dot-c kev-dot"></span>KEV: +{{ parseFloat(v.kev_contribution).toFixed(4) }}</span>
+                                            <span><span class="dot-c epss-dot"></span>EPSS: +{{ parseFloat(v.epss_contribution).toFixed(4) }}</span>
+                                            <span class="total-sum-lbl">TOTAL RISK: {{ parseFloat(v.risk_score).toFixed(6) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="p-card-footer">
+                                    <div class="remediation-group">
+                                        <span class="action-alert-icon">⚠️</span>
+                                        <span><strong>Recommended Steps:</strong> Review this vulnerability and verify the affected product status.</span>
+                                    </div>
+                                    <button class="sys-btn font-share hover-g" @click="openModal(v)">EXPLORE LOGS</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ALL FINDINGS PAGE -->
+                    <div v-if="currentPage === 'all_findings'" class="page-content animated fadeIn">
+                        <div class="full-view-header">
+                            <h2 class="section-top-title font-share">DATABASE FINDINGS REGISTRY</h2>
+                            <p class="section-top-desc">Inspection panel of all matched vulnerabilities identified for: <strong>{{ currentOrg.name }}</strong></p>
+                        </div>
+                        
+                        <!-- Filtering controllers header -->
+                        <div class="filtering-box-card">
+                            <div class="search-input-wrapper">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" v-model="searchQuery" placeholder="Search by CVE ID or product name..." class="cyber-txt-input">
+                            </div>
+                            
+                            <div class="selective-filters-wrapper">
+                                <div class="filter-dropdown-select-group">
+                                    <label class="filter-lbl font-share">Asset Product</label>
+                                    <select v-model="productFilter" class="filter-select">
+                                        <option value="">-- ALL PRODUCTS --</option>
+                                        <option v-for="prod in currentOrg.critical_products" :key="prod" :value="prod">{{ prod }}</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="filter-dropdown-select-group">
+                                    <label class="filter-lbl font-share">CISA KEV Exploits</label>
+                                    <select v-model="kevFilter" class="filter-select">
+                                        <option value="">-- ALL RECORDS --</option>
+                                        <option value="kev">CONFIRMED ONLY</option>
+                                        <option value="non_kev">UNLISTED ONLY</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="filter-dropdown-select-group">
+                                    <label class="filter-lbl font-share">Order By Priority</label>
+                                    <select v-model="sortOption" class="filter-select">
+                                        <option value="risk_score">RISK SCORE (DES)</option>
+                                        <option value="cvss">CVSS SCORE (DES)</option>
+                                        <option value="epss">EPSS SCORE (DES)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Results counter -->
+                        <div class="results-meta-registry">
+                            <span>Found <strong>{{ filteredFindings.length }}</strong> matching threat records in database registry.</span>
+                            <span v-if="filteredFindings.length !== currentOrgData.ranked_vulnerabilities.length" class="text-neon" @click="resetFilters" style="cursor: pointer; text-decoration: underline;">Reset Filters</span>
+                        </div>
+
+                        <!-- Findings Data Grid Table -->
+                        <div class="registry-table-wrapper select-glow-border">
+                            <table class="registry-raw-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>CVE ID</th>
+                                        <th>PRODUCT NAME</th>
+                                        <th class="text-center">CVSS BASE</th>
+                                        <th class="text-center">KEV TARGET</th>
+                                        <th class="text-center">EPSS LEVEL</th>
+                                        <th class="text-right">CALCULATED RISK SCORE</th>
+                                        <th class="text-right">OPERATION</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(v, index) in filteredFindings" :key="v.cve_id + '-' + v.product_name" @click="openModal(v)">
+                                        <td>{{ index + 1 }}</td>
+                                        <td class="font-share text-cyan fw-bold">{{ v.cve_id }}</td>
+                                        <td>{{ v.product_name }}</td>
+                                        <td class="text-center">
+                                            <span class="severity-badge-dot" :class="getSeverityClass(v.cvss_base_score)"></span>
+                                            <span>{{ parseFloat(v.cvss_base_score).toFixed(1) }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="kev-p-badge" :class="{ active: v.cisa_kev }">
+                                                {{ v.cisa_kev ? 'CONFIRMED' : 'NO' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center font-share">{{ parseFloat(v.first_epss).toFixed(5) }}</td>
+                                        <td class="text-right text-neon font-share fw-bold">{{ parseFloat(v.risk_score).toFixed(6) }}</td>
+                                        <td class="text-right">
+                                            <button class="sys-btn sm-btn font-share hover-g" @click.stop="openModal(v)">VIEW</button>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="filteredFindings.length === 0">
+                                        <td colspan="8" class="text-center empty-cell-msg font-share">
+                                            NO MATCHING RECORDS RETRIEVED FROM TRIAGE LOGS
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- VALIDATION PAGE -->
+                    <div v-if="currentPage === 'validation'" class="page-content animated fadeIn">
+                        <div class="full-view-header">
+                            <h2 class="section-top-title font-share">PRACTITIONER RANKING VALIDATION TETHER</h2>
+                            <p class="section-top-desc">Comparing calculated algorithmic prioritization against reference human expert scores.</p>
+                        </div>
+                        
+                        <div class="validation-note-alert">
+                            <div class="note-icon">📢</div>
+                            <div class="note-body">
+                                <strong>ARCHITECTURE PRINCIPLE:</strong> Practitioner models and ranks are used strictly for scoring system validation and diagnostic evaluations. They <strong>never</strong> manipulate, override or influence the main calculated systems priority metrics.
+                            </div>
+                        </div>
+
+                        <!-- Validation selector columns -->
+                        <div class="validation-tabs-card-deck">
+                            <div v-for="org in backendData.organizations" :key="org.org_id" class="validation-card-case" :class="{ 'inactive-case': !backendData.validation_report[org.org_id].supported }">
+                                <div class="val-case-header">
+                                    <h3 class="case-org-title text-neon">{{ org.name }}</h3>
+                                    <span class="case-org-desc">{{ org.org_id }} | Sector: {{ org.sector }}</span>
+                                </div>
+
+                                <div class="val-case-body">
+                                    <div v-if="backendData.validation_report[org.org_id].supported" class="validation-table-sec">
+                                        <div class="val-meta-counts font-share">
+                                            Agreement comparison mapping: Evaluated for 5 benchmark vulnerabilities
+                                        </div>
+                                        
+                                        <div class="val-inner-table-wrapper">
+                                            <table class="val-inner-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>CVE ID</th>
+                                                        <th>Product affected</th>
+                                                        <th class="text-center font-share">Sys Rank</th>
+                                                        <th class="text-center font-share">Expert Rank</th>
+                                                        <th class="text-right font-share">Offset value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr v-for="item in backendData.validation_report[org.org_id].comparison" :key="item.cve_id + '-' + item.product_name">
+                                                        <td class="font-share text-cyan">{{ item.cve_id }}</td>
+                                                        <td>{{ item.product_name }}</td>
+                                                        <td class="text-center font-share text-bold">{{ item.calculated_rank }}</td>
+                                                        <td class="text-center font-share text-bold">{{ item.practitioner_rank }}</td>
+                                                        <td class="text-right font-share font-share text-semibold" :class="getOffsetClass(item.calculated_rank - item.practitioner_rank)">
+                                                            {{ getOffsetLabel(item.calculated_rank - item.practitioner_rank) }}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    
+                                    <div v-else class="unavailable-validation-fallback">
+                                        <div class="warning-large font-share">⚠️ BENCHMARK UNAVAILABLE</div>
+                                        <p class="fallback-note-txt">Practitioner reference dataset does not contain scoring columns for {{ org.name }} ({{ org.org_id }}).</p>
+                                        <span class="fallback-disclaimer">Keep Municipal Utility Provider validation separate because the practitioner dataset does not contain a practitioner rank for ORG-003.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REPORTS PAGE -->
+                    <div v-if="currentPage === 'reports'" class="page-content animated fadeIn">
+                        <div class="full-view-header">
+                            <h2 class="section-top-title font-share">ORGANISATION-BASED PRIORITIZATION COMP</h2>
+                            <p class="section-top-desc">Personalization audit demonstrating how identical vulnerabilities rank differently under distinct weights and contexts.</p>
+                        </div>
+                        
+                        <div class="reports-deck-layout">
+                            
+                            <!-- Key weights comparison widget -->
+                            <div class="reports-card-full select-glow-border">
+                                <h3 class="reports-title-lbl font-share">ORGANIZATION WEIGHTSETS DECK</h3>
+                                <div class="orgs-comparison-matrix">
+                                    <div v-for="org in backendData.organizations" :key="org.org_id" class="matrix-org-col" :class="{ selected: selectedOrgId === org.org_id }">
+                                        <h4 class="compare-org-name font-share text-neon">{{ org.name }}</h4>
+                                        <span class="compare-risk-ap">Appetite: {{ org.risk_appetite }}</span>
+                                        <div class="matrix-modifiers">
+                                            <div class="mod-row">
+                                                <span>CVSS base:</span>
+                                                <span class="fw-bold">{{ org.weight_modifiers.cvss_weight }}</span>
+                                            </div>
+                                            <div class="mod-row">
+                                                <span>CISA KEV:</span>
+                                                <span class="fw-bold">{{ org.weight_modifiers.cisa_kev_weight }}</span>
+                                            </div>
+                                            <div class="mod-row">
+                                                <span>FIRST EPSS:</span>
+                                                <span class="fw-bold">{{ org.weight_modifiers.first_epss_weight }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="matrix-products">
+                                            <div class="prod-tag-lbl">Target Products:</div>
+                                            <div class="p-box-chips">
+                                                <div v-for="p in org.critical_products" :key="p" class="mini-prod-chip">{{ p }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cross-Organisation Top Priorities Comparison -->
+                            <div class="reports-card-full select-glow-border">
+                                <h3 class="reports-title-lbl font-share">SIDE-BY-SIDE PRIORITIES RESOLUTION</h3>
+                                <div class="side-comparsion-columns">
+                                    <div v-for="org in backendData.organizations" :key="org.org_id" class="side-priority-col" :class="{ selected: selectedOrgId === org.org_id }">
+                                        <div class="side-col-header font-share">{{ org.name }} TOP 5</div>
+                                        <ul class="side-top-ordered-ranks-list">
+                                            <li v-for="(v, index) in backendData.org_data[org.org_id].top_5" :key="v.cve_id + '-' + v.product_name" class="side-rank-item">
+                                                <div class="s-rnk-badge">0{{ index + 1 }}</div>
+                                                <div class="s-rnk-body">
+                                                    <span class="s-rnk-cve font-share">{{ v.cve_id }}</span>
+                                                    <span class="s-rnk-prod text-truncate">{{ v.product_name }}</span>
+                                                </div>
+                                                <div class="s-rnk-score">
+                                                    <span class="lbl-m">score</span>
+                                                    <span class="val-m font-share text-neon">{{ parseFloat(v.risk_score).toFixed(4) }}</span>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- SETTINGS PAGE -->
+                    <div v-if="currentPage === 'settings'" class="page-content animated fadeIn">
+                        <div class="full-view-header">
+                            <h2 class="section-top-title font-share">SYSTEM SETTINGS & META DIAGNOSTICS</h2>
+                            <p class="section-top-desc">Verify data ingestion modules and parameters.</p>
+                        </div>
+                        
+                        <div class="settings-grid-cards">
+                            <div class="settings-panel select-glow-border">
+                                <h3 class="set-title font-share">DATA INGESTION SNAPSHOTS</h3>
+                                <div class="meta-row">
+                                    <span class="meta-n">Vulnerability Database Feed</span>
+                                    <span class="meta-v font-share">vulnerabilities.csv</span>
+                                </div>
+                                <div class="meta-row">
+                                    <span class="meta-n">Vulnerability Count loaded</span>
+                                    <span class="meta-v font-share text-cyan">540 records</span>
+                                </div>
+                                <div class="meta-row">
+                                    <span class="meta-n">Risk Weight Modifiers</span>
+                                    <span class="meta-v font-share">organizations.json</span>
+                                </div>
+                                <div class="meta-row">
+                                    <span class="meta-n">Benchmark Validation Reference</span>
+                                    <span class="meta-v font-share">practitioner.csv</span>
+                                </div>
+                            </div>
+
+                            <div class="settings-panel select-glow-border">
+                                <h3 class="set-title font-share">PARSING DIAGNOSTICS & LOGGING</h3>
+                                <div class="error-log-box">
+                                    <div class="log-title font-share">INTEGRITY ALERTS [{{ totalErrorsCount }} errors checked]</div>
+                                    <div class="log-lines">
+                                        <div class="log-line text-green" v-if="totalErrorsCount === 0">
+                                            [+] Database parses verified successfully: all records passed limits and criteria.
+                                            [+] Duplicate checks parsed successfully: zero redundant combinations found.
+                                        </div>
+                                        <template v-else>
+                                            <div v-for="err in allLoggedErrors" class="log-line text-amber">
+                                                [!] {{ err }}
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </main>
+            </div>
+        </div>
+
+        <!-- DETAILED VULNERABILITY MODAL -->
+        <div v-if="showModal && selectedVulnDetail" class="modal-backdrop activeAnimated" @click.self="closeModal">
+            <div class="modal-dialog select-glow-border-large">
+                <div class="modal-header">
+                    <div class="header-cve-title font-share">
+                        <span class="glow-bullet animate-pulse"></span>
+                        <span>{{ selectedVulnDetail.cve_id }}</span>
+                    </div>
+                    <button class="sys-btn md-close-btn" @click="closeModal">&times;</button>
+                </div>
+                
+                <div class="modal-body scroll-panel">
+                    <h3 class="modal-body-title font-share">THREAT REPORTING PACKAGE</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="dlbl font-share">Affected Product Vector</span>
+                            <span class="dval text-neon">{{ selectedVulnDetail.product_name }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="dlbl font-share">Dynamic Risk Score</span>
+                            <span class="dval font-share text-cyan text-bold">{{ parseFloat(selectedVulnDetail.risk_score).toFixed(6) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="modal-sub-divider"></div>
+                    
+                    <h4 class="modal-section-title font-share">RISK ATTRIBUTES AND MATRIX SIGNALS</h4>
+                    <div class="matrix-pills-row">
+                        <div class="matrix-pill">
+                            <span class="plbl">CVSS Base Rating</span>
+                            <span class="pval inline-severity-text font-share" :class="getSeverityClass(selectedVulnDetail.cvss_base_score)">
+                                {{ selectedVulnDetail.cvss_base_score }}
+                            </span>
+                            <span class="psub">{{ getSeverityLabel(selectedVulnDetail.cvss_base_score) }} Severity</span>
+                        </div>
+                        <div class="matrix-pill">
+                            <span class="plbl font-share">CISA KEV Listing</span>
+                            <span class="pval font-share" :class="{ 'text-red warning-glow': selectedVulnDetail.cisa_kev }">
+                                {{ selectedVulnDetail.cisa_kev ? 'CONFIRMED' : 'NO' }}
+                            </span>
+                            <span class="psub">Exploit Active status</span>
+                        </div>
+                        <div class="matrix-pill">
+                            <span class="plbl">FIRST EPSS index</span>
+                            <span class="pval font-share">{{ parseFloat(selectedVulnDetail.first_epss).toFixed(5) }}</span>
+                            <span class="psub">Exploitations probability</span>
+                        </div>
+                    </div>
+
+                    <div class="modal-sub-divider"></div>
+                    
+                    <h4 class="modal-section-title font-share">SCORING CONTEXTUAL CONTRIBUTION</h4>
+                    <div class="meter-bar-item">
+                        <div class="bar-lbls">
+                            <span>CVSS Risk Share (+{{ parseFloat(selectedVulnDetail.cvss_contribution).toFixed(6) }})</span>
+                            <span>{{ (selectedVulnDetail.cvss_contribution / selectedVulnDetail.risk_score * 100).toFixed(1) }}%</span>
+                        </div>
+                        <div class="meter-backdrop">
+                            <div class="meter-fill cvss-fill" :style="{ width: (selectedVulnDetail.cvss_contribution / selectedVulnDetail.risk_score * 100) + '%' }"></div>
+                        </div>
+                    </div>
+
+                    <div class="meter-bar-item">
+                        <div class="bar-lbls">
+                            <span>KEV Threat Listing Share (+{{ parseFloat(selectedVulnDetail.kev_contribution).toFixed(6) }})</span>
+                            <span>{{ (selectedVulnDetail.kev_contribution / selectedVulnDetail.risk_score * 100).toFixed(1) }}%</span>
+                        </div>
+                        <div class="meter-backdrop">
+                            <div class="meter-fill kev-fill" :style="{ width: (selectedVulnDetail.kev_contribution / selectedVulnDetail.risk_score * 100) + '%' }"></div>
+                        </div>
+                    </div>
+
+                    <div class="meter-bar-item">
+                        <div class="bar-lbls">
+                            <span>EPSS Exploit Likelihood Share (+{{ parseFloat(selectedVulnDetail.epss_contribution).toFixed(6) }})</span>
+                            <span>{{ (selectedVulnDetail.epss_contribution / selectedVulnDetail.risk_score * 100).toFixed(1) }}%</span>
+                        </div>
+                        <div class="meter-backdrop">
+                            <div class="meter-fill epss-fill" :style="{ width: (selectedVulnDetail.epss_contribution / selectedVulnDetail.risk_score * 100) + '%' }"></div>
+                        </div>
+                    </div>
+
+                    <div class="modal-sub-divider"></div>
+
+                    <h4 class="modal-section-title font-share">JUSTIFICATION STATEMENTS</h4>
+                    <div class="explanation-balloon">
+                        <ul class="why-points-list">
+                            <li>
+                                <span class="point-status check font-share">MATCH</span>
+                                <span class="point-desc">Vulnerability product affects critical context scope <strong>{{ selectedVulnDetail.product_name }}</strong> for {{ currentOrg.name }}.</span>
+                            </li>
+                            <li>
+                                <span class="point-status info font-share">CVSS</span>
+                                <span class="point-desc">Technical severity of vulnerability assessed as <strong>{{ selectedVulnDetail.cvss_base_score }}</strong> base score.</span>
+                            </li>
+                            <li>
+                                <span class="point-status font-share" :class="selectedVulnDetail.cisa_kev ? 'warn' : 'check'">
+                                    {{ selectedVulnDetail.cisa_kev ? 'KEV EXPLOIT' : 'KEV UNLISTED' }}
+                                </span>
+                                <span class="point-desc">
+                                    {{ selectedVulnDetail.cisa_kev ? 'Vulnerability is actively exploited according to CISA catalog feeds.' : 'No active exploit vectors are listed in the CISA KEV registry.' }}
+                                </span>
+                            </li>
+                            <li>
+                                <span class="point-status info font-share">EPSS LEVEL</span>
+                                <span class="point-desc">Vulnerability has <strong>{{ (selectedVulnDetail.first_epss * 100).toFixed(4) }}%</strong> probability of exploitation within wild environments.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <div class="footer-action-rec-badge">
+                        <span><strong>TREATMENT:</strong> Review this vulnerability and verify the affected product status.</span>
+                    </div>
+                    <button class="sys-btn md-close-bottom-btn font-share" @click="closeModal">DISMISS</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <script src="index.js"></script>
+</body>
+</html>
