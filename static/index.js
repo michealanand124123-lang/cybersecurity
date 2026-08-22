@@ -535,14 +535,35 @@ createApp({
             }
         };
 
+        const defaultOrg = {
+            org_id: 'ORG-001',
+            name: 'Global Retail Bank',
+            sector: 'Financial Services',
+            risk_appetite: 'Low',
+            critical_products: ['Core Banking Framework', 'Identity Provider SaaS'],
+            weight_modifiers: { cvss_weight: 0.3, cisa_kev_weight: 0.45, first_epss_weight: 0.25 }
+        };
+
+        const defaultOrgData = {
+            critical_products: ['Core Banking Framework', 'Identity Provider SaaS'],
+            weight_modifiers: { cvss_weight: 0.3, cisa_kev_weight: 0.45, first_epss_weight: 0.25 },
+            match_report: { matched_count: 0, zero_match_products: [], product_matches_count: {} },
+            top_5: [],
+            ranked_vulnerabilities: []
+        };
+
+        const organizationsList = computed(() => {
+            return backendData.value?.organizations || [defaultOrg];
+        });
+
         const currentOrg = computed(() => {
-            if (!backendData.value || !backendData.value.organizations) return null;
-            return backendData.value.organizations.find(o => o.org_id === selectedOrgId.value);
+            if (!backendData.value || !backendData.value.organizations) return defaultOrg;
+            return backendData.value.organizations.find(o => o.org_id === selectedOrgId.value) || defaultOrg;
         });
 
         const currentOrgData = computed(() => {
-            if (!backendData.value || !backendData.value.org_data) return null;
-            return backendData.value.org_data[selectedOrgId.value];
+            if (!backendData.value || !backendData.value.org_data) return defaultOrgData;
+            return backendData.value.org_data[selectedOrgId.value] || defaultOrgData;
         });
 
         const top5KevCount = computed(() => {
@@ -757,6 +778,7 @@ createApp({
             clearCopilotChat,
             formatMarkdown,
 
+            organizationsList,
             currentOrg,
             currentOrgData,
             top5KevCount,

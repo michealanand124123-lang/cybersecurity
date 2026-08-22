@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VULNTRIAGE - Cyber Defense Intelligence</title>
-    <!-- Vue 3 CDN (Global Build) -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Vue 3 Local Asset (Offline-Ready / Zero-Latency) -->
+    <script src="vue.global.js"></script>
+    <script>if (typeof Vue === 'undefined') { document.write('<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"><\/script>'); }</script>
     <link rel="stylesheet" href="index.css">
     <!-- Google Fonts Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -402,7 +403,7 @@
                             <div class="meta-lbl">TARGET ORGANIZATION</div>
                             <div class="org-selector-wrapper">
                                 <select v-model="selectedOrgId" class="org-dropdown-select" @change="onOrgChange">
-                                    <option v-for="org in backendData.organizations" :key="org.org_id" :value="org.org_id">
+                                    <option v-for="org in organizationsList" :key="org.org_id" :value="org.org_id">
                                         {{ org.name }}
                                     </option>
                                 </select>
