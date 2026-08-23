@@ -16,7 +16,7 @@ from src.ai_advisor import (
 class TestAiIntegration(unittest.TestCase):
     """
     Validates Featherless AI explainability layer integration,
-    authoritative data ingestion, schema completeness, and fallback behavior.
+    active session dataset ingestion, provenance tracking, and strict fallback isolation.
     """
 
     def test_ai_status_sanitization(self):
@@ -58,7 +58,7 @@ class TestAiIntegration(unittest.TestCase):
         self.assertAlmostEqual(context["official_risk_score"], 0.881328, places=5)
 
     def test_vulnerability_analysis_schema_and_integrity(self):
-        """Verify analyze_vulnerability_with_ai returns all 8 required sections and preserves official scores."""
+        """Verify analyze_vulnerability_with_ai returns all required sections and preserves official scores."""
         result = analyze_vulnerability_with_ai("ORG-001", "CVE-2023-1262")
         self.assertNotIn("error", result)
         self.assertEqual(result["cve_id"], "CVE-2023-1262")
@@ -66,7 +66,7 @@ class TestAiIntegration(unittest.TestCase):
         self.assertEqual(result["deterministic_rank"], 1)
         self.assertAlmostEqual(result["deterministic_risk_score"], 0.881328, places=5)
         
-        # Verify required 8 explanation components
+        # Verify required explanation components
         analysis = result.get("analysis", {})
         self.assertIn("why_prioritized", analysis)
         self.assertIn("score_contribution_explanation", analysis)
@@ -84,6 +84,106 @@ class TestAiIntegration(unittest.TestCase):
         result = analyze_vulnerability_with_ai("ORG-001", "CVE-9999-0000")
         self.assertEqual(result.get("status"), "not_found")
         self.assertIn("error", result)
+
+    def test_ai_advisor_with_uploaded_custom_dataset(self):
+        """
+        Rule 2 / Test A: AI Advisor must successfully analyze custom CVEs
+        from an uploaded in-memory dataset that do not exist in the bundled baseline.
+        """
+        custom_uploaded_vulns = [
+            {
+                "cve_id": "CVE-CUSTOM-9999",
+                "product_name": "Identity Provider SaaS",
+                "cvss_base_score": 9.4,
+                "cisa_kev": True,
+                "first_epss": 0.95
+            },
+            {
+                "cve_id": "CVE-CUSTOM-8888",
+                "product_name": "Core Banking Framework",
+                "cvss_base_score": 8.0,
+                "cisa_kev": False,
+                "first_epss": 0.40
+            }
+        ]
+        
+        result = analyze_vulnerability_with_ai(
+            org_id="ORG-001",
+            cve_id="CVE-CUSTOM-9999",
+            product_name="Identity Provider SaaS",
+            active_vulnerabilities=custom_uploaded_vulns,
+            dataset_source="Uploaded Dataset (custom_feed.csv)"
+        )
+        
+        self.assertNotIn("error", result)
+        self.assertEqual(result["cve_id"], "CVE-CUSTOM-9999")
+        self.assertEqual(result["product_name"], "Identity Provider SaaS")
+        self.assertEqual(result["deterministic_rank"], 1)
+        self.assertEqual(result["total_matched"], 2)
+        self.assertEqual(result["dataset_source"], "Uploaded Dataset (custom_feed.csv)")
+        
+        # Numerical integrity check: CVSS 9.4 * 0.3 + KEV 1.0 * 0.45 + EPSS 0.95 * 0.25 = 0.282 + 0.45 + 0.2375 = 0.9695
+        expected_score = round((9.4 / 10.0) * 0.30 + 1.0 * 0.45 + 0.95 * 0.25, 6)
+        self.assertAlmostEqual(result["deterministic_risk_score"], expected_score, places=5)
+
+    def test_ai_advisor_rejects_baseline_cve_when_uploaded_dataset_active(self):
+        """
+        Rule 3 / Test B: No Silent Fallback!
+        If a custom dataset is active and the user requests a baseline CVE that is NOT
+        in the custom dataset, return 'not_found' rather than silently loading the baseline.
+        """
+        custom_uploaded_vulns = [
+            {
+                "cve_id": "CVE-CUSTOM-9999",
+                "product_name": "Identity Provider SaaS",
+                "cvss_base_score": 9.4,
+                "cisa_kev": True,
+                "first_epss": 0.95
+            }
+        ]
+        
+        # Request baseline CVE-2023-1262 which is NOT in the custom uploaded list
+        result = analyze_vulnerability_with_ai(
+            org_id="ORG-001",
+            cve_id="CVE-2023-1262",
+            product_name="Identity Provider SaaS",
+            active_vulnerabilities=custom_uploaded_vulns,
+            dataset_source="Uploaded Dataset (isolated.csv)"
+        )
+        
+        self.assertEqual(result.get("status"), "not_found")
+        self.assertIn("error", result)
+        self.assertIn("isolated.csv", result.get("dataset_source", ""))
+        self.assertIn("not found in active dataset", result["error"])
+
+    def test_ai_advisor_organization_switching(self):
+        """
+        Rule 8 / Test I: Switching organization with the same active dataset
+        correctly updates matched critical products, weights, and ranking.
+        """
+        custom_uploaded_vulns = [
+            {
+                "cve_id": "CVE-SWITCH-001",
+                "product_name": "Cloud Database Engine",
+                "cvss_base_score": 9.0,
+                "cisa_kev": True,
+                "first_epss": 0.80
+            }
+        ]
+        
+        # ORG-002 is Agile Cloud Tech Startup whose critical product includes Cloud Database Engine
+        result = analyze_vulnerability_with_ai(
+            org_id="ORG-002",
+            cve_id="CVE-SWITCH-001",
+            product_name="Cloud Database Engine",
+            active_vulnerabilities=custom_uploaded_vulns,
+            dataset_source="Uploaded Dataset (tech.csv)"
+        )
+        
+        self.assertNotIn("error", result)
+        self.assertEqual(result["org_id"], "ORG-002")
+        self.assertEqual(result["org_name"], "Agile Cloud Tech Startup")
+        self.assertEqual(result["deterministic_rank"], 1)
 
     def test_executive_summary_structure(self):
         """Verify executive summary generation for an organization."""

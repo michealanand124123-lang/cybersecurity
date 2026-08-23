@@ -31,7 +31,7 @@ def _load_env_file():
                         k, v = line.split("=", 1)
                         k = k.strip()
                         v = v.strip().strip("'\"")
-                        if k and k not in os.environ:
+                        if k:
                             os.environ[k] = v
         except Exception:
             pass
@@ -67,16 +67,31 @@ def get_ai_service_status():
         "description": "Featherless AI Natural-Language Advisory Layer"
     }
 
-def get_authoritative_vuln_context(org_id, cve_id, product_name=None):
+def get_authoritative_vuln_context(org_id, cve_id, product_name=None, active_vulnerabilities=None, dataset_source=None):
     """
-    Retrieves authoritative organization and vulnerability records strictly using org_id and cve_id.
-    Never trusts frontend-supplied calculations or product names.
+    Retrieves authoritative organization and vulnerability records strictly using org_id, cve_id,
+    and the single ACTIVE dataset (in-memory session or baseline).
+    Never trusts frontend-supplied calculations.
     
+    Args:
+        org_id (str): Organization ID (e.g. 'ORG-001')
+        cve_id (str): Vulnerability CVE ID
+        product_name (str, optional): Product name for disambiguation among multiple affected products
+        active_vulnerabilities (list, optional): Active normalized vulnerability records. If None, loads baseline.
+        dataset_source (str, optional): Name/provenance of the active dataset.
+        
     Returns:
-        dict containing all authoritative metrics and context, or None if not found.
+        dict containing all authoritative metrics and context, or None if not found in active dataset.
     """
     organizations, _ = load_organizations()
-    vulnerabilities, _, _, _, _ = load_vulnerabilities()
+    
+    # Resolve active vulnerabilities from session or fallback
+    if active_vulnerabilities is not None:
+        vulnerabilities = active_vulnerabilities
+        source_label = dataset_source or "Active Uploaded Dataset"
+    else:
+        vulnerabilities, _, _, _, _ = load_vulnerabilities()
+        source_label = dataset_source or "Bundled Baseline Dataset (data/vulnerabilities.csv)"
     
     # 1. Locate organization
     target_org = next((o for o in organizations if o.get("org_id") == org_id), None)
@@ -87,7 +102,7 @@ def get_authoritative_vuln_context(org_id, cve_id, product_name=None):
     match_rep = match_products_for_organization(target_org, vulnerabilities)
     ranked_vulns = rank_vulnerabilities(target_org, match_rep["matched_vulnerabilities"])
     
-    # 3. Find candidate matches for this cve_id
+    # 3. Find candidate matches for this cve_id in the active dataset
     matches = []
     for idx, v in enumerate(ranked_vulns, start=1):
         if v["cve_id"].upper() == cve_id.upper():
@@ -129,7 +144,8 @@ def get_authoritative_vuln_context(org_id, cve_id, product_name=None):
         "epss_contribution": selected_vuln.get("epss_contribution", 0.0),
         "official_risk_score": selected_vuln.get("risk_score", 0.0),
         "official_rank": selected_rank,
-        "total_matched_count": len(ranked_vulns)
+        "total_matched_count": len(ranked_vulns),
+        "dataset_source": source_label
     }
 
 def generate_deterministic_fallback_analysis(context):
@@ -147,6 +163,7 @@ def generate_deterministic_fallback_analysis(context):
     kev = context["cisa_kev"]
     epss = context["first_epss"]
     weights = context["weights"]
+    dataset_source = context.get("dataset_source", "Active Dataset")
     
     cvss_w = weights.get("cvss_weight", 0.0)
     kev_w = weights.get("cisa_kev_weight", 0.0)
@@ -181,7 +198,7 @@ def generate_deterministic_fallback_analysis(context):
     )
     
     ranking_context = (
-        f"Ranked #{rank} out of {total} total matched vulnerabilities for {org_name}. "
+        f"Ranked #{rank} out of {total} total matched vulnerabilities for {org_name} within {dataset_source}. "
         f"{'This represents the highest priority vulnerability requiring immediate review.' if rank == 1 else f'Positioned at rank #{rank} among top organizational priorities.'}"
     )
     
@@ -202,19 +219,32 @@ def generate_deterministic_fallback_analysis(context):
         "ranking_context": ranking_context,
         "recommended_review": recommended_review,
         "data_limitations": data_limitations,
-        "summary": f"{cve_id} on {product} evaluated with official deterministic risk score {risk_score:.6f} (Rank #{rank} of {total})."
+        "summary": f"{cve_id} on {product} evaluated with official deterministic risk score {risk_score:.6f} (Rank #{rank} of {total}) from {dataset_source}."
     }
 
-def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None):
+def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None, active_vulnerabilities=None, dataset_source=None):
     """
     Main entry point to generate explainable AI natural-language analysis for a vulnerability.
-    Retrieves authoritative context and prompts Featherless AI (or gracefully falls back).
+    Retrieves authoritative context strictly from the active dataset and prompts Featherless AI
+    (or gracefully falls back to deterministic template).
+    
+    Never falls back to the bundled baseline if a custom dataset is active.
     """
-    context = get_authoritative_vuln_context(org_id, cve_id, product_name)
+    context = get_authoritative_vuln_context(
+        org_id=org_id,
+        cve_id=cve_id,
+        product_name=product_name,
+        active_vulnerabilities=active_vulnerabilities,
+        dataset_source=dataset_source
+    )
+    
+    source_name = dataset_source or ("Active Uploaded Dataset" if active_vulnerabilities is not None else "Bundled Baseline Dataset")
+    
     if not context:
         return {
-            "error": f"Vulnerability {cve_id} not found for organization {org_id}",
-            "status": "not_found"
+            "error": f"Vulnerability {cve_id} on '{product_name or 'any product'}' not found in active dataset ({source_name}) for organization {org_id}.",
+            "status": "not_found",
+            "dataset_source": source_name
         }
         
     config = get_featherless_config()
@@ -233,6 +263,7 @@ def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None):
             "cvss_base_score": context["cvss_base_score"],
             "cisa_kev": context["cisa_kev"],
             "first_epss": context["first_epss"],
+            "dataset_source": context["dataset_source"],
             "contributions": {
                 "cvss": context["cvss_contribution"],
                 "kev": context["kev_contribution"],
@@ -259,7 +290,9 @@ def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None):
     )
     
     user_payload = {
+        "dataset_source": context["dataset_source"],
         "authoritative_data": {
+            "dataset_source": context["dataset_source"],
             "organization_name": context["org_name"],
             "organization_sector": context["org_sector"],
             "risk_appetite": context["risk_appetite"],
@@ -282,7 +315,7 @@ def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None):
             "why_prioritized": "String explaining why this vulnerability is prioritized based on product match, CVSS, KEV, and EPSS.",
             "score_contribution_explanation": "String detailing the mathematical score contribution breakdown across CVSS, KEV, and EPSS.",
             "organization_context": "String explaining how this aligns with the organization's sector, risk appetite, and critical assets.",
-            "ranking_context": "String describing its position in the organization's ranking (Rank #X of Y).",
+            "ranking_context": "String describing its position in the organization's ranking (Rank #X of Y) within the active dataset.",
             "recommended_review": "String providing actionable security review recommendations based on authoritative findings.",
             "data_limitations": "String explicitly listing data points that are not provided in the available dataset.",
             "summary": "Short 1-2 sentence executive overview."
@@ -354,6 +387,7 @@ def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None):
             "cvss_base_score": context["cvss_base_score"],
             "cisa_kev": context["cisa_kev"],
             "first_epss": context["first_epss"],
+            "dataset_source": context["dataset_source"],
             "contributions": {
                 "cvss": context["cvss_contribution"],
                 "kev": context["kev_contribution"],
@@ -378,6 +412,7 @@ def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None):
             "cvss_base_score": context["cvss_base_score"],
             "cisa_kev": context["cisa_kev"],
             "first_epss": context["first_epss"],
+            "dataset_source": context["dataset_source"],
             "contributions": {
                 "cvss": context["cvss_contribution"],
                 "kev": context["kev_contribution"],
@@ -389,12 +424,19 @@ def analyze_vulnerability_with_ai(org_id, cve_id, product_name=None):
             "model_used": None
         }
 
-def generate_executive_summary_with_ai(org_id):
+def generate_executive_summary_with_ai(org_id, active_vulnerabilities=None, dataset_source=None):
     """
-    Generates a natural-language executive summary brief for the organization's Top 5 priorities.
+    Generates a natural-language executive summary brief for the organization's Top 5 priorities
+    strictly from the active dataset.
     """
     organizations, _ = load_organizations()
-    vulnerabilities, _, _, _, _ = load_vulnerabilities()
+    
+    if active_vulnerabilities is not None:
+        vulnerabilities = active_vulnerabilities
+        source_label = dataset_source or "Active Uploaded Dataset"
+    else:
+        vulnerabilities, _, _, _, _ = load_vulnerabilities()
+        source_label = dataset_source or "Bundled Baseline Dataset (data/vulnerabilities.csv)"
     
     target_org = next((o for o in organizations if o.get("org_id") == org_id), None)
     if not target_org:
@@ -406,6 +448,17 @@ def generate_executive_summary_with_ai(org_id):
     
     config = get_featherless_config()
     
+    if not top_5:
+        return {
+            "org_id": org_id,
+            "org_name": target_org["name"],
+            "top_5_cves": [],
+            "executive_summary": f"No matching vulnerabilities identified for {target_org['name']} in {source_label}.",
+            "dataset_source": source_label,
+            "is_fallback": True,
+            "model_used": None
+        }
+        
     # Fallback deterministic summary
     top_5_summary = [
         f"Rank #{i+1}: {v['cve_id']} on {v['product_name']} (Risk Score: {v['risk_score']:.6f}, CVSS: {v['cvss_base_score']}, KEV: {v['cisa_kev']}, EPSS: {v['first_epss']:.4f})"
@@ -413,7 +466,8 @@ def generate_executive_summary_with_ai(org_id):
     ]
     
     fallback_exec_text = (
-        f"Executive Brief for {target_org['name']} ({target_org['sector']} sector, Risk Appetite: {target_org['risk_appetite']}):\n\n"
+        f"Executive Brief for {target_org['name']} ({target_org['sector']} sector, Risk Appetite: {target_org['risk_appetite']}) "
+        f"derived from {source_label}:\n\n"
         f"VULNTRIAGE evaluated {len(ranked)} matched vulnerabilities across critical products {target_org['critical_products']}. "
         f"The top threat vector is {top_5[0]['cve_id']} on {top_5[0]['product_name']} with an aggregated risk score of {top_5[0]['risk_score']:.6f}. "
         f"{sum(1 for v in top_5 if v['cisa_kev'])} out of the Top 5 prioritized vulnerabilities have confirmed active exploitation in CISA KEV."
@@ -425,6 +479,7 @@ def generate_executive_summary_with_ai(org_id):
             "org_name": target_org["name"],
             "top_5_cves": [v["cve_id"] for v in top_5],
             "executive_summary": fallback_exec_text,
+            "dataset_source": source_label,
             "is_fallback": True,
             "model_used": None
         }
@@ -436,6 +491,7 @@ def generate_executive_summary_with_ai(org_id):
             "for the specified organization. Use ONLY the provided authoritative data. Do NOT invent external metrics."
         )
         user_content = json.dumps({
+            "dataset_source": source_label,
             "organization": target_org["name"],
             "sector": target_org["sector"],
             "risk_appetite": target_org["risk_appetite"],
@@ -452,7 +508,7 @@ def generate_executive_summary_with_ai(org_id):
                     {"role": "user", "content": user_content}
                 ],
                 "temperature": 0.2,
-                "max_tokens": 800
+                "max_tokens": 1000
             }).encode("utf-8"),
             headers={
                 "Authorization": f"Bearer {config['api_key']}",
@@ -463,25 +519,30 @@ def generate_executive_summary_with_ai(org_id):
             },
             method="POST"
         )
+        
         with urllib.request.urlopen(req, timeout=12) as response:
             res_data = json.loads(response.read().decode("utf-8"))
-        summary_text = res_data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-        
+            
+        exec_text = res_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if not exec_text:
+            exec_text = fallback_exec_text
+            
         return {
             "org_id": org_id,
             "org_name": target_org["name"],
             "top_5_cves": [v["cve_id"] for v in top_5],
-            "executive_summary": summary_text if summary_text else fallback_exec_text,
+            "executive_summary": exec_text,
+            "dataset_source": source_label,
             "is_fallback": False,
             "model_used": config["model"]
         }
-    except Exception as e:
+    except Exception:
         return {
             "org_id": org_id,
             "org_name": target_org["name"],
             "top_5_cves": [v["cve_id"] for v in top_5],
             "executive_summary": fallback_exec_text,
+            "dataset_source": source_label,
             "is_fallback": True,
-            "fallback_reason": str(e),
             "model_used": None
         }

@@ -104,101 +104,87 @@ createApp({
             return valid;
         };
 
-        // Handle Login Submission
-        const handleLogin = async () => {
-            if (!validateLoginForm()) {
-                return;
-            }
+        const handleLogin = () => {
+            if (!validateLoginForm()) return;
 
             authLoading.value = true;
             authErrors.value.general = '';
 
-            try {
-                // Realistic authentication simulation delay
-                await new Promise(resolve => setTimeout(resolve, 600));
+            setTimeout(() => {
+                const emailLower = authForm.value.email.trim().toLowerCase();
+                const defaultEmail = 'analyst@vulntriage.sec';
+                const defaultPass = 'security2026';
 
-                const trimmedEmail = authForm.value.email.trim();
-                
-                // Formulate enterprise user profile
-                const emailPrefix = trimmedEmail.split('@')[0];
-                const displayName = emailPrefix
-                    .replace(/[._-]/g, ' ')
-                    .replace(/\b\w/g, c => c.toUpperCase());
-
-                const userSession = {
-                    name: displayName || 'SecOps Analyst',
-                    email: trimmedEmail,
-                    role: 'Lead Vulnerability Analyst',
-                    clearance: 'LEVEL 4 - SEC-NET',
-                    loginTimestamp: new Date().toISOString()
-                };
-
-                const sessionPayload = {
-                    token: 'vt_sec_' + Math.random().toString(36).substring(2) + Date.now(),
-                    user: userSession
-                };
-
-                if (authForm.value.rememberMe) {
-                    localStorage.setItem('vulntriage_session', JSON.stringify(sessionPayload));
-                } else {
-                    sessionStorage.setItem('vulntriage_session', JSON.stringify(sessionPayload));
-                }
-
-                currentUser.value = userSession;
-                authSuccess.value = true;
-
-                // Brief success feedback then transition
-                setTimeout(() => {
-                    isAuthenticated.value = true;
-                    authLoading.value = false;
-                    authSuccess.value = false;
-                    currentPage.value = 'dashboard';
+                if ((emailLower === defaultEmail && authForm.value.password === defaultPass) ||
+                    (validateEmailFormat(authForm.value.email) && authForm.value.password.length >= 6)) {
                     
-                    // Fetch backend telemetry if not yet loaded
-                    if (!backendData.value) {
-                        fetchData();
+                    authSuccess.value = true;
+                    
+                    let nameDisplay = 'SecOps Operator';
+                    if (emailLower.includes('@')) {
+                        const localPart = emailLower.split('@')[0];
+                        nameDisplay = localPart.charAt(0).toUpperCase() + localPart.slice(1) + ' (SecOps)';
                     }
-                }, 400);
+                    
+                    currentUser.value = {
+                        name: nameDisplay,
+                        email: authForm.value.email.trim(),
+                        role: 'Lead Triage Officer',
+                        clearance: 'LEVEL 4 - AUTHORIZED'
+                    };
 
-            } catch (err) {
-                authLoading.value = false;
-                authErrors.value.general = 'Authentication gateway rejected credentials. Please verify your access.';
-            }
+                    const sessionPayload = {
+                        token: 'vsec_' + Math.random().toString(36).substring(2) + Date.now(),
+                        user: currentUser.value
+                    };
+
+                    try {
+                        if (authForm.value.rememberMe) {
+                            localStorage.setItem('vulntriage_session', JSON.stringify(sessionPayload));
+                        } else {
+                            sessionStorage.setItem('vulntriage_session', JSON.stringify(sessionPayload));
+                        }
+                    } catch (e) {
+                        console.warn('Storage save failed:', e);
+                    }
+
+                    setTimeout(() => {
+                        isAuthenticated.value = true;
+                        authLoading.value = false;
+                        authSuccess.value = false;
+                        fetchData();
+                        fetchAiStatus();
+                    }, 400);
+                } else {
+                    authLoading.value = false;
+                    authErrors.value.general = 'Invalid credentials. Check email and password.';
+                }
+            }, 600);
         };
 
-        // Fast-fill demo credentials
-        const fastFillDemo = () => {
-            authForm.value.email = 'analyst@vulntriage.sec';
-            authForm.value.password = 'CyberDefense#2026';
-            authErrors.value.email = '';
-            authErrors.value.password = '';
-            authErrors.value.general = '';
-        };
-
-        // Toggle password visibility
-        const togglePasswordVisibility = () => {
-            authForm.value.showPassword = !authForm.value.showPassword;
-        };
-
-        // Handle Logout
         const handleLogout = () => {
             try {
                 localStorage.removeItem('vulntriage_session');
                 sessionStorage.removeItem('vulntriage_session');
-            } catch (e) {
-                // ignore
-            }
+            } catch (e) {}
             isAuthenticated.value = false;
             authForm.value.password = '';
+            authErrors.value.general = '';
+            currentPage.value = 'dashboard';
+        };
+
+        const fastFillDemo = () => {
+            authForm.value.email = 'analyst@vulntriage.sec';
+            authForm.value.password = 'security2026';
             authErrors.value.email = '';
             authErrors.value.password = '';
             authErrors.value.general = '';
-            authSuccess.value = false;
-            authLoading.value = false;
-            mobileLayoutOpen.value = false;
         };
 
-        // Modal Helpers
+        const togglePasswordVisibility = () => {
+            authForm.value.showPassword = !authForm.value.showPassword;
+        };
+
         const openForgotModal = () => {
             forgotEmail.value = authForm.value.email || '';
             forgotSubmitted.value = false;
@@ -218,14 +204,14 @@ createApp({
         };
 
         const openSignupModal = () => {
+            signupSubmitted.value = false;
             signupForm.value = {
                 name: '',
                 email: authForm.value.email || '',
-                organization: 'ORG-001 (Global Financial Services)',
+                organization: 'ORG-001 (Global Retail Bank)',
                 clearanceLevel: 'Level 2 - Standard Analyst',
                 justification: ''
             };
-            signupSubmitted.value = false;
             showSignupModal.value = true;
         };
 
@@ -299,20 +285,282 @@ createApp({
             aiAnalysisData.value = null;
             aiError.value = null;
         };
-        
+
+        // ==========================================
+        // FEATURE 1: AUTO UPLOAD & SCHEMA DETECTION
+        // ==========================================
+        const fileInputRef = ref(null);
+        const uploading = ref(false);
+        const uploadError = ref(null);
+        const uploadInspectData = ref(null);
+        const rawUploadedContent = ref('');
+        const rawUploadedFilename = ref('');
+        const importSuccessSummary = ref(null);
+        const isDragOver = ref(false);
+
+        const triggerChooseFile = () => {
+            if (fileInputRef.value) {
+                fileInputRef.value.click();
+            }
+        };
+
+        const inspectFileContent = async (contentStr, filename) => {
+            uploading.value = true;
+            uploadError.value = null;
+            uploadInspectData.value = null;
+            importSuccessSummary.value = null;
+            rawUploadedContent.value = contentStr;
+            rawUploadedFilename.value = filename;
+
+            try {
+                const res = await fetch('/api/upload/inspect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        file_content: contentStr,
+                        filename: filename
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok && !data.dataset_type) {
+                    throw new Error(data.error || `Upload inspection failed with code ${res.status}`);
+                }
+                uploadInspectData.value = data;
+            } catch (err) {
+                uploadError.value = err.message || "Failed to inspect uploaded file.";
+            } finally {
+                uploading.value = false;
+            }
+        };
+
+        const onFileSelected = (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            processUploadedFileObject(file);
+        };
+
+        const onFileDrop = (e) => {
+            isDragOver.value = false;
+            const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (!file) return;
+            processUploadedFileObject(file);
+        };
+
+        const processUploadedFileObject = (file) => {
+            const allowedExts = ['.csv', '.json', '.txt'];
+            const nameLower = file.name.toLowerCase();
+            const validExt = allowedExts.some(ext => nameLower.endsWith(ext));
+
+            if (!validExt) {
+                uploadError.value = `Unsupported file format '${file.name}'. Supported extensions: CSV, JSON.`;
+                return;
+            }
+
+            if (file.size > 25 * 1024 * 1024) {
+                uploadError.value = `File size exceeds 25MB limit (${(file.size / 1024 / 1024).toFixed(1)}MB).`;
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const content = event.target.result;
+                inspectFileContent(content, file.name);
+            };
+            reader.onerror = () => {
+                uploadError.value = "Failed to read local file from device.";
+            };
+            reader.readAsText(file);
+        };
+
+        const importAndActivateDataset = async () => {
+            if (!rawUploadedContent.value) {
+                uploadError.value = "No inspected dataset available to import.";
+                return;
+            }
+
+            uploading.value = true;
+            uploadError.value = null;
+
+            try {
+                const res = await fetch('/api/upload/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        file_content: rawUploadedContent.value,
+                        filename: rawUploadedFilename.value
+                    })
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || `Import failed with code ${res.status}`);
+                }
+
+                const data = await res.json();
+                backendData.value = data;
+                importSuccessSummary.value = data.import_summary;
+                
+                // Clear simulation state on new dataset load
+                resetSimulation();
+                fetchBestFirstFix();
+            } catch (err) {
+                uploadError.value = err.message || "Failed to import dataset into engine.";
+            } finally {
+                uploading.value = false;
+            }
+        };
+
+        const loadDemoDataset = async () => {
+            await resetToBundledBaseline();
+        };
+
+        const resetToBundledBaseline = async () => {
+            uploading.value = true;
+            uploadError.value = null;
+            uploadInspectData.value = null;
+            importSuccessSummary.value = null;
+
+            try {
+                const res = await fetch('/api/dataset/reset', { method: 'POST' });
+                if (!res.ok) {
+                    throw new Error(`Reset failed with code ${res.status}`);
+                }
+                const data = await res.json();
+                backendData.value = data;
+                
+                resetSimulation();
+                fetchBestFirstFix();
+            } catch (err) {
+                uploadError.value = err.message || "Failed to reset to default dataset.";
+            } finally {
+                uploading.value = false;
+            }
+        };
+
+        // ==========================================
+        // FEATURE 2: WHAT-IF RISK SIMULATOR
+        // ==========================================
+        const simulating = ref(false);
+        const simError = ref(null);
+        const simulationResult = ref(null);
+        const selectedRemediatedPairs = ref(new Set()); // Keys: "CVE_ID|PRODUCT_NAME"
+        const bestFixLoading = ref(false);
+        const bestFixResult = ref(null);
+        const showSimModal = ref(false);
+        const simModalTargetVuln = ref(null);
+
+        const pairKey = (cve, prod) => `${(cve || '').trim().toUpperCase()}|${(prod || '').trim().toLowerCase()}`;
+
+        const isPairRemediated = (cve, prod) => {
+            return selectedRemediatedPairs.value.has(pairKey(cve, prod));
+        };
+
+        const toggleRemediationPair = (cve, prod) => {
+            const k = pairKey(cve, prod);
+            if (selectedRemediatedPairs.value.has(k)) {
+                selectedRemediatedPairs.value.delete(k);
+            } else {
+                selectedRemediatedPairs.value.add(k);
+            }
+            runSimulation();
+        };
+
+        const openSimulationModal = (vuln) => {
+            if (!vuln) return;
+            simModalTargetVuln.value = vuln;
+            showSimModal.value = true;
+            
+            // Auto-select this specific vuln for simulation
+            selectedRemediatedPairs.value.clear();
+            selectedRemediatedPairs.value.add(pairKey(vuln.cve_id, vuln.product_name));
+            runSimulation();
+        };
+
+        const closeSimulationModal = () => {
+            showSimModal.value = false;
+            simModalTargetVuln.value = null;
+        };
+
+        const runSimulation = async () => {
+            simulating.value = true;
+            simError.value = null;
+
+            const pairsArray = Array.from(selectedRemediatedPairs.value).map(k => {
+                const parts = k.split('|');
+                return { cve_id: parts[0], product_name: parts[1] };
+            });
+
+            try {
+                const res = await fetch('/api/simulation/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        org_id: selectedOrgId.value,
+                        remediated_pairs: pairsArray
+                    })
+                });
+
+                if (!res.ok) {
+                    const errJson = await res.json().catch(() => ({}));
+                    throw new Error(errJson.error || `Simulation failed with code ${res.status}`);
+                }
+
+                const data = await res.json();
+                simulationResult.value = data;
+            } catch (err) {
+                simError.value = err.message || "Failed to execute simulation.";
+            } finally {
+                simulating.value = false;
+            }
+        };
+
+        const resetSimulation = () => {
+            selectedRemediatedPairs.value.clear();
+            simulationResult.value = null;
+            simError.value = null;
+            if (currentPage.value === 'simulator') {
+                runSimulation();
+            }
+        };
+
+        const fetchBestFirstFix = async () => {
+            bestFixLoading.value = true;
+            try {
+                const res = await fetch('/api/simulation/best-fix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ org_id: selectedOrgId.value })
+                });
+                if (res.ok) {
+                    bestFixResult.value = await res.json();
+                }
+            } catch (e) {
+                console.warn('Best fix fetch error:', e);
+            } finally {
+                bestFixLoading.value = false;
+            }
+        };
+
+        const applyBestFixToSimulation = () => {
+            if (!bestFixResult.value || !bestFixResult.value.recommended_cve) return;
+            selectedRemediatedPairs.value.clear();
+            selectedRemediatedPairs.value.add(
+                pairKey(bestFixResult.value.recommended_cve, bestFixResult.value.recommended_product)
+            );
+            runSimulation();
+        };
+
         // ==========================================
         // EXISTING DASHBOARD APPLICATION STATE
         // ==========================================
-        // Expanded CVEs tracker for collapsible cards
         const expandedVulnCves = ref(new Set());
         
-        // All findings filters
         const searchQuery = ref('');
         const productFilter = ref('');
         const kevFilter = ref('');
         const sortOption = ref('risk_score');
         
-        // Modal detail box state
         const showModal = ref(false);
         const selectedVulnDetail = ref(null);
 
@@ -322,6 +570,16 @@ createApp({
                 id: 'dashboard',
                 label: 'Dashboard',
                 icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>`
+            },
+            {
+                id: 'upload',
+                label: 'Upload & Analyze',
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>`
+            },
+            {
+                id: 'simulator',
+                label: 'Risk Simulator',
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`
             },
             {
                 id: 'organizations',
@@ -374,51 +632,46 @@ createApp({
                 const currentTop5 = data.org_data[selectedOrgId.value]?.top_5 || [];
                 expandedVulnCves.value.clear();
                 if (currentTop5.length > 0) {
-                    // Expand rank 1 by default
                     expandedVulnCves.value.add(currentTop5[0].cve_id + '-' + currentTop5[0].product_name);
                 }
+                
+                fetchBestFirstFix();
             } catch (err) {
-                console.error("Data load failure:", err);
-                error.value = err.message || "Failed to establish socket feedback with backplane.";
+                console.error("Data fetch error:", err);
+                error.value = err.message || "Failed to establish uplink with VULNTRIAGE backend service.";
             } finally {
                 loading.value = false;
             }
         };
 
-        // Active organization object
         const currentOrg = computed(() => {
-            if (!backendData.value || !backendData.value.organizations) return null;
-            return backendData.value.organizations.find(o => o.org_id === selectedOrgId.value);
+            if (!backendData.value || !backendData.value.organizations) return { name: '', sector: '', risk_appetite: '', critical_products: [], weight_modifiers: {} };
+            return backendData.value.organizations.find(o => o.org_id === selectedOrgId.value) || backendData.value.organizations[0];
         });
 
-        // Active organization triage structures
         const currentOrgData = computed(() => {
-            if (!backendData.value || !backendData.value.org_data) return null;
-            return backendData.value.org_data[selectedOrgId.value];
+            if (!backendData.value || !backendData.value.org_data) return { match_report: { matched_count: 0, zero_match_products: [] }, top_5: [], ranked_vulnerabilities: [] };
+            return backendData.value.org_data[selectedOrgId.value] || { match_report: { matched_count: 0, zero_match_products: [] }, top_5: [], ranked_vulnerabilities: [] };
         });
 
-        // KEV Count inside top 5
         const top5KevCount = computed(() => {
             if (!currentOrgData.value || !currentOrgData.value.top_5) return 0;
             return currentOrgData.value.top_5.filter(v => v.cisa_kev).length;
         });
 
-        // Average Risk Score of top prioritized vulnerabilities
         const averageRiskScore = computed(() => {
-            if (!currentOrgData.value || !currentOrgData.value.top_5 || currentOrgData.value.top_5.length === 0) return '0.000000';
+            if (!currentOrgData.value || !currentOrgData.value.top_5 || currentOrgData.value.top_5.length === 0) return '0.000';
             const sum = currentOrgData.value.top_5.reduce((acc, curr) => acc + curr.risk_score, 0);
-            return (sum / currentOrgData.value.top_5.length).toFixed(6);
+            return (sum / currentOrgData.value.top_5.length).toFixed(3);
         });
 
-        // Error Diagnostics logs mapping
         const allLoggedErrors = computed(() => {
             if (!backendData.value || !backendData.value.errors) return [];
-            const errs = backendData.value.errors;
+            const e = backendData.value.errors;
             return [
-                ...errs.org_errors,
-                ...errs.vuln_errors,
-                ...errs.prac_errors,
-                ...errs.duplicates.map(c => `Duplicate combination reported for: ${c}`)
+                ...(e.org_errors || []),
+                ...(e.vuln_errors || []),
+                ...(e.prac_errors || [])
             ];
         });
 
@@ -426,83 +679,77 @@ createApp({
             return allLoggedErrors.value.length;
         });
 
-        // All matched vulnerabilities filtered table registry
         const filteredFindings = computed(() => {
             if (!currentOrgData.value || !currentOrgData.value.ranked_vulnerabilities) return [];
             let list = [...currentOrgData.value.ranked_vulnerabilities];
-
-            // Search query filter
+            
             if (searchQuery.value) {
-                const query = searchQuery.value.toLowerCase().trim();
-                list = list.filter(v => 
-                    v.cve_id.toLowerCase().includes(query) || 
-                    v.product_name.toLowerCase().includes(query)
-                );
+                const q = searchQuery.value.toLowerCase();
+                list = list.filter(v => v.cve_id.toLowerCase().includes(q) || v.product_name.toLowerCase().includes(q));
             }
-
-            // Products filter
+            
             if (productFilter.value) {
                 list = list.filter(v => v.product_name === productFilter.value);
             }
-
-            // KEV filter
-            if (kevFilter.value === 'kev') {
-                list = list.filter(v => v.cisa_kev);
-            } else if (kevFilter.value === 'non_kev') {
-                list = list.filter(v => !v.cisa_kev);
+            
+            if (kevFilter.value !== '') {
+                const isKev = kevFilter.value === 'true';
+                list = list.filter(v => v.cisa_kev === isKev);
             }
-
-            // Dynamic sort mappings (not mutating backend ranks, only frontend display sorting)
+            
             if (sortOption.value === 'risk_score') {
                 list.sort((a, b) => b.risk_score - a.risk_score);
-            } else if (sortOption.value === 'cvss') {
-                list.sort((a, b) => b.cvss_base_score - a.cvss_base_score);
-            } else if (sortOption.value === 'epss') {
-                list.sort((a, b) => b.first_epss - a.first_epss);
+            } else if (sortOption.value === 'cvss_base_score') {
+                list.sort((a, b) => (b.cvss_base_score || 0) - (a.cvss_base_score || 0));
+            } else if (sortOption.value === 'first_epss') {
+                list.sort((a, b) => (b.first_epss || 0) - (a.first_epss || 0));
+            } else if (sortOption.value === 'cve_id') {
+                list.sort((a, b) => a.cve_id.localeCompare(b.cve_id));
             }
-
+            
             return list;
         });
 
-        // Page change handler
-        const setPage = (pageName) => {
-            currentPage.value = pageName;
+        const setPage = (pageId) => {
+            currentPage.value = pageId;
             mobileLayoutOpen.value = false;
+            if (pageId === 'simulator' && !simulationResult.value) {
+                runSimulation();
+                fetchBestFirstFix();
+            }
         };
 
-        // Org swap handler
         const onOrgChange = () => {
-            // Recapture default expand for index 0 of current org
             expandedVulnCves.value.clear();
-            if (currentOrgData.value && currentOrgData.value.top_5 && currentOrgData.value.top_5.length > 0) {
-                expandedVulnCves.value.add(currentOrgData.value.top_5[0].cve_id + '-' + currentOrgData.value.top_5[0].product_name);
+            const top5 = currentOrgData.value?.top_5 || [];
+            if (top5.length > 0) {
+                expandedVulnCves.value.add(top5[0].cve_id + '-' + top5[0].product_name);
             }
-            // Reset searches
-            productFilter.value = '';
-            searchQuery.value = '';
-            kevFilter.value = '';
+            fetchBestFirstFix();
+            if (currentPage.value === 'simulator' || simulationResult.value) {
+                runSimulation();
+            }
         };
 
         const resetFilters = () => {
             searchQuery.value = '';
             productFilter.value = '';
             kevFilter.value = '';
+            sortOption.value = 'risk_score';
         };
 
-        // Expand/Collapse cards
-        const toggleVulnExpand = (cveId) => {
-            if (expandedVulnCves.value.has(cveId)) {
-                expandedVulnCves.value.delete(cveId);
+        const toggleVulnExpand = (cveKey) => {
+            if (expandedVulnCves.value.has(cveKey)) {
+                expandedVulnCves.value.delete(cveKey);
             } else {
-                expandedVulnCves.value.add(cveId);
+                expandedVulnCves.value.add(cveKey);
             }
         };
 
-        const isExpanded = (cveId) => {
-            return expandedVulnCves.value.has(cveId);
+        const isExpanded = (cveKey) => {
+            return expandedVulnCves.value.has(cveKey);
         };
 
-        // Modals detail toggles
         const openModal = (vuln) => {
             selectedVulnDetail.value = vuln;
             showModal.value = true;
@@ -513,27 +760,22 @@ createApp({
             selectedVulnDetail.value = null;
         };
 
-        // Theme controllers
         const toggleTheme = () => {
             theme.value = theme.value === 'dark' ? 'light' : 'dark';
-            document.body.classList.toggle('light-theme', theme.value === 'light');
-            document.body.classList.toggle('cyber-theme', theme.value === 'dark');
+            document.body.className = theme.value + '-theme';
         };
 
-        // Severity utility helper mappings
         const getSeverityLabel = (cvss) => {
-            const val = parseFloat(cvss);
-            if (val >= 9.0) return 'CRITICAL';
-            if (val >= 7.0) return 'HIGH';
-            if (val >= 4.0) return 'MEDIUM';
+            if (cvss >= 9.0) return 'CRITICAL';
+            if (cvss >= 7.0) return 'HIGH';
+            if (cvss >= 4.0) return 'MEDIUM';
             return 'LOW';
         };
 
         const getSeverityClass = (cvss) => {
-            const val = parseFloat(cvss);
-            if (val >= 9.0) return 'severity-critical';
-            if (val >= 7.0) return 'severity-high';
-            if (val >= 4.0) return 'severity-medium';
+            if (cvss >= 9.0) return 'severity-critical';
+            if (cvss >= 7.0) return 'severity-high';
+            if (cvss >= 4.0) return 'severity-medium';
             return 'severity-low';
         };
 
@@ -549,7 +791,6 @@ createApp({
             return '0 Match';
         };
 
-        // Helper to output dynamic scaling percentage of contribution weights
         const percentScale = (value, weight) => {
             if (!weight) return '0%';
             const factor = parseFloat(value) / parseFloat(weight);
@@ -604,6 +845,39 @@ createApp({
             aiServiceStatus,
             openAiAnalysis,
             closeAiModal,
+
+            // Upload exports
+            fileInputRef,
+            uploading,
+            uploadError,
+            uploadInspectData,
+            importSuccessSummary,
+            isDragOver,
+            triggerChooseFile,
+            onFileSelected,
+            onFileDrop,
+            importAndActivateDataset,
+            loadDemoDataset,
+            resetToBundledBaseline,
+
+            // Simulator exports
+            simulating,
+            simError,
+            simulationResult,
+            selectedRemediatedPairs,
+            bestFixLoading,
+            bestFixResult,
+            showSimModal,
+            simModalTargetVuln,
+            pairKey,
+            isPairRemediated,
+            toggleRemediationPair,
+            openSimulationModal,
+            closeSimulationModal,
+            runSimulation,
+            resetSimulation,
+            fetchBestFirstFix,
+            applyBestFixToSimulation,
 
             currentOrg,
             currentOrgData,

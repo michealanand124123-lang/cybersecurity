@@ -447,6 +447,13 @@
                             </svg>
                         </button>
                         
+                        <!-- Active Dataset Indicator -->
+                        <div v-if="backendData && backendData.dataset_meta" class="header-dataset-pill font-share" :class="backendData.dataset_meta.is_custom ? 'custom-active' : 'baseline-active'" :title="backendData.dataset_meta.source_name">
+                            <span class="dataset-pill-dot" :class="backendData.dataset_meta.is_custom ? 'pulse-cyan' : 'pulse-green'"></span>
+                            <span class="dataset-pill-lbl">{{ backendData.dataset_meta.is_custom ? 'CUSTOM DATASET (' + backendData.dataset_meta.valid_records + ' recs)' : 'BUNDLED BASELINE' }}</span>
+                            <button v-if="backendData.dataset_meta.is_custom" class="dataset-pill-reset-btn" @click="resetToBundledBaseline" title="Reset to default bundled baseline">RESET</button>
+                        </div>
+                        
                         <!-- Validation Indicator -->
                         <div class="sec-badge" :title="'Target context matching operational: ' + currentOrg.name">
                             <span class="badge-dot animate-pulse"></span>
@@ -620,10 +627,13 @@
                                                         <span class="action-lbl">REVENUE RISK ACTION PLAN:</span>
                                                         <p class="action-desc">Review this vulnerability and verify the affected product status.</p>
                                                         <div class="card-action-btns">
-                                                            <button class="sys-btn border-glow-btn font-share sm-btn ai-trigger-btn" @click.stop="openAiAnalysis(vuln)" title="Request explainable natural-language AI analysis">
-                                                                <span>✨ AI SECURITY ANALYSIS</span>
+                                                            <button class="sys-btn border-glow-btn font-share sm-btn sim-trigger-btn" @click.stop="openSimulationModal(vuln)" title="Model what happens if this vulnerability is remediated">
+                                                                <span>⚡ SIMULATE FIX</span>
                                                             </button>
-                                                            <button class="sys-btn border-glow-btn font-share sm-btn" @click.stop="openModal(vuln)">INSPECT DETAIL LOGS</button>
+                                                            <button class="sys-btn border-glow-btn font-share sm-btn ai-trigger-btn" @click.stop="openAiAnalysis(vuln)" title="Request explainable natural-language AI analysis">
+                                                                <span>✨ AI ADVISOR</span>
+                                                            </button>
+                                                            <button class="sys-btn border-glow-btn font-share sm-btn" @click.stop="openModal(vuln)">INSPECT LOGS</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -840,7 +850,15 @@
                                         <span class="action-alert-icon">⚠️</span>
                                         <span><strong>Recommended Steps:</strong> Review this vulnerability and verify the affected product status.</span>
                                     </div>
-                                    <button class="sys-btn font-share hover-g" @click="openModal(v)">EXPLORE LOGS</button>
+                                    <div class="card-action-btns">
+                                        <button class="sys-btn border-glow-btn font-share sm-btn sim-trigger-btn" @click.stop="openSimulationModal(v)" title="Model what happens if this vulnerability is remediated">
+                                            <span>⚡ SIMULATE FIX</span>
+                                        </button>
+                                        <button class="sys-btn border-glow-btn font-share sm-btn ai-trigger-btn" @click.stop="openAiAnalysis(v)">
+                                            <span>✨ AI ADVISOR</span>
+                                        </button>
+                                        <button class="sys-btn font-share hover-g sm-btn" @click="openModal(v)">EXPLORE LOGS</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -926,8 +944,10 @@
                                         </td>
                                         <td class="text-center font-share">{{ parseFloat(v.first_epss).toFixed(5) }}</td>
                                         <td class="text-right text-neon font-share fw-bold">{{ parseFloat(v.risk_score).toFixed(6) }}</td>
-                                        <td class="text-right">
-                                            <button class="sys-btn sm-btn font-share hover-g" @click.stop="openModal(v)">VIEW</button>
+                                        <td class="text-right table-ops-btns">
+                                            <button class="sys-btn xs-btn font-share sim-trigger-btn" @click.stop="openSimulationModal(v)" title="Model remediation in simulator">⚡ SIM</button>
+                                            <button class="sys-btn xs-btn font-share ai-trigger-btn" @click.stop="openAiAnalysis(v)" title="AI Security Advisory">✨ AI</button>
+                                            <button class="sys-btn xs-btn font-share hover-g" @click.stop="openModal(v)">VIEW</button>
                                         </td>
                                     </tr>
                                     <tr v-if="filteredFindings.length === 0">
@@ -1118,6 +1138,466 @@
                         </div>
                     </div>
 
+                    <!-- ==========================================
+                         UPLOAD & ANALYZE PAGE (FEATURE 1)
+                         ========================================== -->
+                    <div v-if="currentPage === 'upload'" class="page-content animated fadeIn">
+                        <div class="full-view-header">
+                            <div class="view-title-row">
+                                <div>
+                                    <h2 class="section-top-title font-share">IMPORT & SCHEMA DETECTION ENGINE</h2>
+                                    <p class="section-top-desc">
+                                        Automated vulnerability dataset ingestion, schema classification, strict quality auditing, and deterministic scoring integration.
+                                    </p>
+                                </div>
+                                <div class="dataset-mode-badge" :class="backendData.dataset_meta?.is_custom ? 'custom-badge' : 'baseline-badge'">
+                                    <span class="badge-dot animate-pulse"></span>
+                                    <span>ACTIVE: {{ backendData.dataset_meta?.is_custom ? 'CUSTOM UPLOAD' : 'BUNDLED BASELINE' }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Dataset Overview Banner -->
+                        <div class="active-dataset-meta-panel select-glow-border">
+                            <div class="meta-source-info">
+                                <span class="meta-source-icon">🛡️</span>
+                                <div>
+                                    <h4 class="meta-source-title font-share">CURRENT ANALYSIS DATASET</h4>
+                                    <span class="meta-source-path">{{ backendData.dataset_meta?.source_name }}</span>
+                                </div>
+                            </div>
+                            <div class="meta-source-stats font-share">
+                                <div class="stat-pill">
+                                    <span class="pill-lbl">ACTIVE RECORDS</span>
+                                    <span class="pill-val text-cyan">{{ backendData.dataset_meta?.valid_records || 0 }}</span>
+                                </div>
+                                <div class="stat-pill">
+                                    <span class="pill-lbl">STATUS</span>
+                                    <span class="pill-val text-green">ONLINE & SCORED</span>
+                                </div>
+                            </div>
+                            <div class="meta-source-actions">
+                                <button v-if="backendData.dataset_meta?.is_custom" class="sys-btn font-share sm-btn reset-baseline-btn" @click="resetToBundledBaseline" :disabled="uploading">
+                                    <span>🔄 REVERT TO BASELINE</span>
+                                </button>
+                                <button class="sys-btn border-glow-btn font-share sm-btn" @click="loadDemoDataset" :disabled="uploading">
+                                    <span>📁 LOAD DEMO DATASET</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Upload Dropzone -->
+                        <div class="upload-workbench-grid">
+                            <div class="upload-dropzone-card select-glow-border"
+                                 :class="{ 'dropzone-active': isDragOver }"
+                                 @dragover.prevent="isDragOver = true"
+                                 @dragleave.prevent="isDragOver = false"
+                                 @drop.prevent="onFileDrop">
+                                
+                                <input type="file" ref="fileInputRef" accept=".csv,.json,.txt" @change="onFileSelected" style="display:none" />
+                                
+                                <div class="dropzone-inner">
+                                    <div class="dropzone-icon-ring">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="upload-cloud-svg">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="17 8 12 3 7 8"></polyline>
+                                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                                        </svg>
+                                    </div>
+                                    <h3 class="dropzone-heading font-share">IMPORT VULNERABILITY DATA</h3>
+                                    <p class="dropzone-sub">Drop CSV or JSON file here to trigger automated schema detection</p>
+                                    
+                                    <div class="dropzone-divider">
+                                        <span>or</span>
+                                    </div>
+
+                                    <div class="dropzone-actions-row">
+                                        <button class="sys-btn border-glow-btn font-share dropzone-btn" @click="triggerChooseFile" :disabled="uploading">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                                <polyline points="14 2 14 8 20 8"></polyline>
+                                                <line x1="12" y1="18" x2="12" y2="12"></line>
+                                                <line x1="9" y1="15" x2="15" y2="15"></line>
+                                            </svg>
+                                            <span>[ Choose File ]</span>
+                                        </button>
+                                        <button class="sys-btn font-share dropzone-demo-btn" @click="loadDemoDataset" :disabled="uploading">
+                                            <span>[ Use Demo Dataset ]</span>
+                                        </button>
+                                    </div>
+
+                                    <div class="dropzone-formats-badge font-share">
+                                        <span>SUPPORTED FORMATS: <strong>CSV</strong>, <strong>JSON</strong> (Max 25MB)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Error Alert -->
+                        <div v-if="uploadError" class="upload-alert-card error-alert animated fadeIn">
+                            <div class="alert-icon">⚠️</div>
+                            <div class="alert-content">
+                                <h4 class="alert-title font-share">INVALID FILE OR PARSING ERROR</h4>
+                                <p class="alert-body">{{ uploadError }}</p>
+                            </div>
+                            <button class="sys-btn sm-btn font-share" @click="uploadError = null">TRY AGAIN</button>
+                        </div>
+
+                        <!-- Upload Loading State -->
+                        <div v-if="uploading" class="upload-loading-state animated fadeIn">
+                            <div class="cyber-spinner"></div>
+                            <div class="loading-lbl font-share">INSPECTING & AUDITING DATASET SCHEMA...</div>
+                            <span class="loading-sub">Validating formats, evaluating boundaries, isolating unrankable records...</span>
+                        </div>
+
+                        <!-- Inspection & Schema Detection Results Panel -->
+                        <div v-if="uploadInspectData && !uploading" class="inspection-results-panel animated fadeIn">
+                            
+                            <!-- Header Row: Classification & Controls -->
+                            <div class="inspection-status-bar select-glow-border">
+                                <div class="status-left">
+                                    <span class="detect-badge font-share">DATASET DETECTED</span>
+                                    <h3 class="dataset-type-headline font-share">
+                                        {{ uploadInspectData.dataset_type === 'vulnerability_dataset' ? 'Vulnerability Threat Feed' : (uploadInspectData.dataset_type === 'organization_profile' ? 'Organization Context Profile' : 'Unknown Dataset Structure') }}
+                                    </h3>
+                                    <span class="dataset-filename-chip">{{ uploadInspectData.filename }} ({{ uploadInspectData.total_records }} total lines parsed)</span>
+                                </div>
+                                <div class="status-right" v-if="uploadInspectData.is_valid && uploadInspectData.dataset_type === 'vulnerability_dataset'">
+                                    <button class="sys-btn border-glow-btn font-share import-action-btn" @click="importAndActivateDataset" :disabled="uploading">
+                                        <span>🚀 IMPORT & ANALYZE INTO ENGINE</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Schema Mapping & Quality Grid -->
+                            <div class="inspection-analysis-grid">
+                                
+                                <!-- Column Aliases Detected -->
+                                <div class="analysis-card select-glow-border">
+                                    <h4 class="card-sec-title font-share">
+                                        <span class="sec-ico">🗺️</span>
+                                        <span>AUTOMATIC COLUMN MAPPING</span>
+                                    </h4>
+                                    <p class="card-sec-desc">Matched incoming column headers to internal VULNTRIAGE scoring keys.</p>
+
+                                    <div class="column-mapping-list">
+                                        <div class="mapping-item">
+                                            <span class="map-target font-share">CVE Identifier</span>
+                                            <span v-if="uploadInspectData.column_mappings?.cve_id" class="map-src font-share map-match">✓ {{ uploadInspectData.column_mappings.cve_id }}</span>
+                                            <span v-else class="map-src font-share map-missing">✕ MISSING</span>
+                                        </div>
+                                        <div class="mapping-item">
+                                            <span class="map-target font-share">Affected Product</span>
+                                            <span v-if="uploadInspectData.column_mappings?.product_name" class="map-src font-share map-match">✓ {{ uploadInspectData.column_mappings.product_name }}</span>
+                                            <span v-else class="map-src font-share map-missing">✕ MISSING</span>
+                                        </div>
+                                        <div class="mapping-item">
+                                            <span class="map-target font-share">CVSS Base Score</span>
+                                            <span v-if="uploadInspectData.column_mappings?.cvss_base_score" class="map-src font-share map-match">✓ {{ uploadInspectData.column_mappings.cvss_base_score }}</span>
+                                            <span v-else class="map-src font-share map-missing">✕ MISSING</span>
+                                        </div>
+                                        <div class="mapping-item">
+                                            <span class="map-target font-share">CISA KEV Status</span>
+                                            <span v-if="uploadInspectData.column_mappings?.cisa_kev" class="map-src font-share map-match">✓ {{ uploadInspectData.column_mappings.cisa_kev }}</span>
+                                            <span v-else class="map-src font-share map-missing">✕ MISSING</span>
+                                        </div>
+                                        <div class="mapping-item">
+                                            <span class="map-target font-share">FIRST EPSS Index</span>
+                                            <span v-if="uploadInspectData.column_mappings?.first_epss" class="map-src font-share map-match">✓ {{ uploadInspectData.column_mappings.first_epss }}</span>
+                                            <span v-else class="map-src font-share map-missing">✕ MISSING</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Data Quality Audit -->
+                                <div class="analysis-card select-glow-border">
+                                    <h4 class="card-sec-title font-share">
+                                        <span class="sec-ico">⚖️</span>
+                                        <span>DATA QUALITY & VALIDATION AUDIT</span>
+                                    </h4>
+                                    <p class="card-sec-desc">Strict boundary validation ($0 \le CVSS \le 10$, $0 \le EPSS \le 1$, Boolean KEV). Missing/invalid values are isolated without zero-defaulting.</p>
+
+                                    <div class="quality-pills-grid">
+                                        <div class="quality-stat-pill pill-green">
+                                            <span class="stat-num font-share">{{ uploadInspectData.quality_report?.valid_count || 0 }}</span>
+                                            <span class="stat-lbl font-share">VALID SCORABLE RECORDS</span>
+                                        </div>
+                                        <div class="quality-stat-pill" :class="uploadInspectData.quality_report?.invalid_count > 0 ? 'pill-amber' : 'pill-gray'">
+                                            <span class="stat-num font-share">{{ uploadInspectData.quality_report?.invalid_count || 0 }}</span>
+                                            <span class="stat-lbl font-share">EXCLUDED / MISSING FIELDS</span>
+                                        </div>
+                                        <div class="quality-stat-pill pill-cyan">
+                                            <span class="stat-num font-share">{{ uploadInspectData.quality_report?.duplicates_count || 0 }}</span>
+                                            <span class="stat-lbl font-share">DUPLICATES CHECKED (CVE+Product)</span>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="uploadInspectData.quality_report?.invalid_count > 0" class="invalid-breakdown-box">
+                                        <div class="invalid-title font-share">EXCLUSION AUDIT BREAKDOWN:</div>
+                                        <ul class="invalid-reasons-list font-share">
+                                            <li v-if="uploadInspectData.quality_report.missing_product_count > 0">⚠ {{ uploadInspectData.quality_report.missing_product_count }} records missing Product Name</li>
+                                            <li v-if="uploadInspectData.quality_report.missing_cvss_count > 0">⚠ {{ uploadInspectData.quality_report.missing_cvss_count }} records missing CVSS score</li>
+                                            <li v-if="uploadInspectData.quality_report.missing_kev_count > 0">⚠ {{ uploadInspectData.quality_report.missing_kev_count }} records missing KEV boolean</li>
+                                            <li v-if="uploadInspectData.quality_report.missing_epss_count > 0">⚠ {{ uploadInspectData.quality_report.missing_epss_count }} records missing EPSS probability</li>
+                                            <li v-if="uploadInspectData.quality_report.invalid_ranges_count > 0">⚠ {{ uploadInspectData.quality_report.invalid_ranges_count }} records with out-of-bounds metrics</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- Data Preview Table (First 10 Rows) -->
+                            <div class="preview-table-card select-glow-border">
+                                <div class="preview-tbl-header">
+                                    <h4 class="card-sec-title font-share">
+                                        <span class="sec-ico">👁️</span>
+                                        <span>IMPORT DATA PREVIEW (First {{ uploadInspectData.preview_rows?.length || 0 }} Rows)</span>
+                                    </h4>
+                                    <span class="preview-badge font-share">Normalized Internal Schema</span>
+                                </div>
+
+                                <div class="table-responsive-wrapper">
+                                    <table class="registry-raw-table preview-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>CVE ID</th>
+                                                <th>PRODUCT NAME</th>
+                                                <th class="text-center">CVSS BASE</th>
+                                                <th class="text-center">CISA KEV</th>
+                                                <th class="text-center">FIRST EPSS</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="r in uploadInspectData.preview_rows" :key="r.line_number">
+                                                <td class="font-share text-muted">{{ r.line_number }}</td>
+                                                <td class="font-share text-cyan fw-bold">{{ r.cve_id || '-' }}</td>
+                                                <td>{{ r.product_name || '-' }}</td>
+                                                <td class="text-center font-share">{{ r.cvss_base_score !== '' ? r.cvss_base_score : '-' }}</td>
+                                                <td class="text-center font-share">{{ r.cisa_kev !== '' ? r.cisa_kev : '-' }}</td>
+                                                <td class="text-center font-share">{{ r.first_epss !== '' ? r.first_epss : '-' }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Final Activation Button Footer -->
+                            <div class="inspection-footer-actions">
+                                <div class="target-org-confirm">
+                                    <label class="font-share">TARGET ANALYSIS CONTEXT:</label>
+                                    <select v-model="selectedOrgId" class="org-dropdown-select" @change="onOrgChange">
+                                        <option v-for="org in backendData.organizations" :key="org.org_id" :value="org.org_id">
+                                            {{ org.name }} ({{ org.sector }})
+                                        </option>
+                                    </select>
+                                </div>
+                                <button class="sys-btn border-glow-btn font-share primary-import-btn" @click="importAndActivateDataset" :disabled="uploading">
+                                    <span>🚀 IMPORT & ANALYZE INTO ENGINE</span>
+                                </button>
+                            </div>
+
+                        </div>
+
+                        <!-- Import Success Confirmation Banner -->
+                        <div v-if="importSuccessSummary" class="import-success-banner select-glow-border animated fadeIn">
+                            <div class="success-header-row">
+                                <div class="success-icon-badge">✓</div>
+                                <div>
+                                    <h3 class="success-title font-share">DATA IMPORT COMPLETE & ENGINE RE-SCORED</h3>
+                                    <p class="success-desc">
+                                        <strong>{{ importSuccessSummary.valid_count }}</strong> valid vulnerability records successfully activated for 
+                                        <strong>{{ currentOrg.name }}</strong> context.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="success-nav-buttons">
+                                <button class="sys-btn border-glow-btn font-share sm-btn" @click="setPage('dashboard')">
+                                    <span>🔍 VIEW TOP 5 PRIORITIES</span>
+                                </button>
+                                <button class="sys-btn border-glow-btn font-share sm-btn" @click="setPage('simulator')">
+                                    <span>⚡ OPEN WHAT-IF SIMULATOR</span>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ==========================================
+                         WHAT-IF RISK SIMULATOR PAGE (FEATURE 2)
+                         ========================================== -->
+                    <div v-if="currentPage === 'simulator'" class="page-content animated fadeIn">
+                        <div class="full-view-header">
+                            <div class="view-title-row">
+                                <div>
+                                    <h2 class="section-top-title font-share">WHAT-IF REMEDIATION SIMULATOR</h2>
+                                    <p class="section-top-desc">
+                                        Model the exact prioritization impact of remediating one or more vulnerabilities. Operates strictly in temporary memory without modifying baseline records.
+                                    </p>
+                                </div>
+                                <div class="sim-status-chip font-share" :class="selectedRemediatedPairs.size > 0 ? 'sim-active' : 'sim-idle'">
+                                    <span class="chip-dot"></span>
+                                    <span>{{ selectedRemediatedPairs.size > 0 ? selectedRemediatedPairs.size + ' REMEDIATION(S) SIMULATED' : 'BASELINE STATE (0 REMEDIATIONS)' }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Simulation Disclosure Notice -->
+                        <div class="simulation-disclosure-notice font-share">
+                            <span class="disc-icon">ℹ️</span>
+                            <span><strong>SIMULATION DISCLOSURE:</strong> This is a what-if analysis. No production or source data has been modified. Baseline rankings can be restored at any time.</span>
+                        </div>
+
+                        <!-- Best First Fix Recommendation Card -->
+                        <div v-if="bestFixResult && bestFixResult.has_recommendation" class="best-fix-advisory-card select-glow-border animated fadeIn">
+                            <div class="best-fix-badge-row">
+                                <span class="best-fix-crown font-share">⭐ RECOMMENDED FIRST REMEDIATION</span>
+                                <span class="best-fix-engine-tag font-share">Comparative Engine Re-Run Verified</span>
+                            </div>
+                            <div class="best-fix-main-row">
+                                <div class="best-fix-ident">
+                                    <h3 class="best-fix-cve font-share text-cyan">{{ bestFixResult.recommended_cve }}</h3>
+                                    <span class="best-fix-product font-share">{{ bestFixResult.recommended_product }}</span>
+                                </div>
+                                <div class="best-fix-metrics font-share">
+                                    <div class="metric-block">
+                                        <span class="m-lbl">BASELINE RANK</span>
+                                        <span class="m-val text-amber">#{{ bestFixResult.baseline_rank }}</span>
+                                    </div>
+                                    <div class="metric-block">
+                                        <span class="m-lbl">RISK SCORE REMOVED</span>
+                                        <span class="m-val text-neon">{{ parseFloat(bestFixResult.risk_score_removed).toFixed(6) }}</span>
+                                    </div>
+                                </div>
+                                <div class="best-fix-action">
+                                    <button class="sys-btn border-glow-btn font-share sm-btn" @click="applyBestFixToSimulation" :disabled="simulating">
+                                        <span>⚡ SIMULATE THIS FIX</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="best-fix-rationale">{{ bestFixResult.rationale }}</p>
+                        </div>
+
+                        <!-- Simulation Controls Bar -->
+                        <div class="sim-controls-card select-glow-border">
+                            <div class="sim-controls-left">
+                                <div class="control-group">
+                                    <label class="font-share">TARGET CONTEXT:</label>
+                                    <select v-model="selectedOrgId" class="org-dropdown-select" @change="onOrgChange">
+                                        <option v-for="org in backendData.organizations" :key="org.org_id" :value="org.org_id">
+                                            {{ org.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="sim-controls-right">
+                                <button class="sys-btn font-share sm-btn reset-sim-btn" @click="resetSimulation" :disabled="selectedRemediatedPairs.size === 0">
+                                    <span>🔄 RESET SIMULATION</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Before / After Top 5 Matrix -->
+                        <div v-if="simulationResult" class="simulation-comparison-grid">
+                            
+                            <!-- Left: Baseline Ground Truth -->
+                            <div class="sim-column baseline-col select-glow-border">
+                                <div class="col-header-bar">
+                                    <h4 class="col-title font-share">BASELINE TOP 5 (Ground Truth)</h4>
+                                    <span class="col-badge font-share">Authoritative</span>
+                                </div>
+
+                                <div class="sim-cards-list">
+                                    <div v-for="v in simulationResult.before_top_5" :key="v.cve_id + '-' + v.product_name"
+                                         class="sim-vuln-item" :class="{ 'item-remediated-strike': v.is_remediated }">
+                                        <div class="item-rank-badge font-share">#{{ v.rank }}</div>
+                                        <div class="item-meta-body">
+                                            <div class="item-header-line">
+                                                <span class="item-cve font-share">{{ v.cve_id }}</span>
+                                                <span v-if="v.is_remediated" class="strike-badge font-share">REMEDIATED IN SIMULATION</span>
+                                            </div>
+                                            <span class="item-product">{{ v.product_name }}</span>
+                                            <div class="item-metrics-sub font-share">
+                                                <span>Risk: <strong>{{ parseFloat(v.risk_score).toFixed(6) }}</strong></span>
+                                                <span>CVSS: {{ v.cvss_base_score }}</span>
+                                                <span :class="v.cisa_kev ? 'text-red' : ''">{{ v.cisa_kev ? 'KEV YES' : 'KEV NO' }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="item-checkbox-action">
+                                            <label class="sim-checkbox-label" :title="'Simulate remediation for ' + v.cve_id">
+                                                <input type="checkbox"
+                                                       :checked="isPairRemediated(v.cve_id, v.product_name)"
+                                                       @change="toggleRemediationPair(v.cve_id, v.product_name)" />
+                                                <span class="sim-check-custom"></span>
+                                                <span class="check-txt font-share">{{ isPairRemediated(v.cve_id, v.product_name) ? 'FIXED' : 'FIX' }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Simulated Top 5 -->
+                            <div class="sim-column simulated-col select-glow-border">
+                                <div class="col-header-bar">
+                                    <h4 class="col-title font-share text-cyan">SIMULATED TOP 5 (After Remediation)</h4>
+                                    <span class="col-badge font-share badge-cyan">Re-Ranked</span>
+                                </div>
+
+                                <div class="sim-cards-list">
+                                    <div v-for="v in simulationResult.after_top_5" :key="v.cve_id + '-' + v.product_name"
+                                         class="sim-vuln-item" :class="{ 'item-new-entrant': v.is_new_entrant }">
+                                        <div class="item-rank-badge font-share rank-after-badge">#{{ v.rank }}</div>
+                                        <div class="item-meta-body">
+                                            <div class="item-header-line">
+                                                <span class="item-cve font-share">{{ v.cve_id }}</span>
+                                                <span v-if="v.is_new_entrant" class="entrant-badge font-share">✨ NEW ENTRANT (Rank #{{ v.rank }})</span>
+                                                <span v-else-if="v.rank_change && v.rank_change > 0" class="shift-badge font-share">▲ +{{ v.rank_change }} (Was #{{ v.baseline_rank }})</span>
+                                            </div>
+                                            <span class="item-product">{{ v.product_name }}</span>
+                                            <div class="item-metrics-sub font-share">
+                                                <span>Risk: <strong>{{ parseFloat(v.risk_score).toFixed(6) }}</strong></span>
+                                                <span>CVSS: {{ v.cvss_base_score }}</span>
+                                                <span :class="v.cisa_kev ? 'text-red' : ''">{{ v.cisa_kev ? 'KEV YES' : 'KEV NO' }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="item-checkbox-action">
+                                            <label class="sim-checkbox-label" :title="'Simulate remediation for ' + v.cve_id">
+                                                <input type="checkbox"
+                                                       :checked="isPairRemediated(v.cve_id, v.product_name)"
+                                                       @change="toggleRemediationPair(v.cve_id, v.product_name)" />
+                                                <span class="sim-check-custom"></span>
+                                                <span class="check-txt font-share">{{ isPairRemediated(v.cve_id, v.product_name) ? 'FIXED' : 'FIX' }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div v-if="simulationResult.after_top_5.length === 0" class="empty-sim-state font-share">
+                                        All matching critical product vulnerabilities remediated in simulation.
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Dynamic Explanation Section -->
+                        <div v-if="simulationResult" class="sim-explanation-panel select-glow-border animated fadeIn">
+                            <h4 class="exp-title font-share">
+                                <span class="sec-ico">📐</span>
+                                <span>WHY DID THE PRIORITIZATION CHANGE?</span>
+                            </h4>
+                            <p class="exp-body">{{ simulationResult.explanation }}</p>
+                            
+                            <div v-if="simulationResult.remediated_vulnerabilities?.length > 0" class="remediated-summary-pills">
+                                <span class="sum-lbl font-share">REMEDIATED THREATS REMOVED:</span>
+                                <div v-for="r in simulationResult.remediated_vulnerabilities" :key="r.cve_id + '-' + r.product_name" class="rem-pill font-share">
+                                    <span class="rem-cve">{{ r.cve_id }}</span>
+                                    <span class="rem-prod">({{ r.product_name }})</span>
+                                    <span class="rem-score">Risk Score Removed: -{{ parseFloat(r.baseline_risk_score).toFixed(6) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
                 </main>
             </div>
         </div>
@@ -1238,8 +1718,11 @@
                         <span><strong>TREATMENT:</strong> Review this vulnerability and verify the affected product status.</span>
                     </div>
                     <div class="modal-footer-btns">
+                        <button class="sys-btn border-glow-btn font-share md-close-bottom-btn sim-trigger-btn" @click="openSimulationModal(selectedVulnDetail)">
+                            <span>⚡ SIMULATE REMEDIATION</span>
+                        </button>
                         <button class="sys-btn border-glow-btn font-share md-close-bottom-btn ai-trigger-btn" @click="openAiAnalysis(selectedVulnDetail)">
-                            <span>✨ AI SECURITY ANALYSIS</span>
+                            <span>✨ AI ADVISOR</span>
                         </button>
                         <button class="sys-btn md-close-bottom-btn font-share" @click="closeModal">DISMISS</button>
                     </div>
@@ -1256,6 +1739,7 @@
                     <div class="modal-title-lockup">
                         <div class="ai-badge-row">
                             <span class="ai-service-chip font-share">FEATHERLESS AI ADVISOR</span>
+                            <span v-if="aiAnalysisData && aiAnalysisData.dataset_source" class="ai-source-chip font-share">📁 {{ aiAnalysisData.dataset_source }}</span>
                             <span v-if="aiAnalysisData && aiAnalysisData.is_fallback" class="ai-fallback-chip font-share">FALLBACK ADVISORY</span>
                             <span v-else-if="aiAnalysisData && aiAnalysisData.model_used" class="ai-model-chip font-share">{{ aiAnalysisData.model_used }}</span>
                         </div>
@@ -1539,6 +2023,87 @@
                     <button v-if="!signupSubmitted" class="sys-btn" @click="closeSignupModal">CANCEL</button>
                     <button v-if="!signupSubmitted" class="login-submit-btn modal-action-btn font-share" @click="submitSignup">SUBMIT REQUEST</button>
                     <button v-else class="sys-btn font-share" @click="closeSignupModal">DISMISS</button>
+                </div>
+        <!-- ==========================================
+             QUICK REMEDIATION SIMULATION MODAL
+             ========================================== -->
+        <div v-if="showSimModal && simModalTargetVuln" class="modal-backdrop animated fadeIn" @click.self="closeSimulationModal">
+            <div class="modal-dialog sim-quick-modal select-glow-border-large">
+                <div class="modal-header">
+                    <div class="modal-title-lockup">
+                        <span class="auth-modal-badge font-share">WHAT-IF SIMULATION</span>
+                        <h3 class="modal-title font-share">Simulate Remediation: {{ simModalTargetVuln.cve_id }}</h3>
+                    </div>
+                    <button class="modal-close-btn" @click="closeSimulationModal" title="Close simulation modal">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="modal-body scroll-panel">
+                    <div class="sim-modal-header-card select-glow-border">
+                        <div class="modal-target-meta">
+                            <div class="meta-row font-share">
+                                <span class="m-lbl">Target Finding:</span>
+                                <span class="m-val text-cyan">{{ simModalTargetVuln.cve_id }} ({{ simModalTargetVuln.product_name }})</span>
+                            </div>
+                            <div class="meta-row font-share">
+                                <span class="m-lbl">Authoritative Risk Score:</span>
+                                <span class="m-val text-neon">{{ parseFloat(simModalTargetVuln.risk_score).toFixed(6) }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="simulationResult" class="sim-modal-comparison-wrapper">
+                        <h4 class="modal-sec-title font-share">BEFORE & AFTER PRIORITIZATION COMPARISON</h4>
+                        
+                        <div class="sim-modal-two-col">
+                            <!-- Before -->
+                            <div class="modal-col-box select-glow-border">
+                                <h5 class="col-h font-share">BASELINE TOP 5</h5>
+                                <ul class="mini-sim-list">
+                                    <li v-for="b in simulationResult.before_top_5" :key="b.cve_id + '-' + b.product_name"
+                                        :class="{ 'remediated-line': b.is_remediated }">
+                                        <span class="m-rnk font-share">#{{ b.rank }}</span>
+                                        <span class="m-cve font-share">{{ b.cve_id }}</span>
+                                        <span class="m-score font-share">{{ parseFloat(b.risk_score).toFixed(4) }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- After -->
+                            <div class="modal-col-box select-glow-border">
+                                <h5 class="col-h font-share text-cyan">SIMULATED TOP 5</h5>
+                                <ul class="mini-sim-list">
+                                    <li v-for="a in simulationResult.after_top_5" :key="a.cve_id + '-' + a.product_name"
+                                        :class="{ 'new-line': a.is_new_entrant }">
+                                        <span class="m-rnk font-share text-cyan">#{{ a.rank }}</span>
+                                        <span class="m-cve font-share">{{ a.cve_id }}</span>
+                                        <span v-if="a.is_new_entrant" class="m-tag font-share">NEW</span>
+                                        <span v-else-if="a.rank_change > 0" class="m-tag-up font-share">▲+{{ a.rank_change }}</span>
+                                        <span class="m-score font-share">{{ parseFloat(a.risk_score).toFixed(4) }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="modal-explanation-box select-glow-border">
+                            <span class="exp-lbl font-share">SIMULATION IMPACT ANALYSIS:</span>
+                            <p class="exp-text">{{ simulationResult.explanation }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <div class="modal-footer-btns">
+                        <button class="sys-btn font-share" @click="resetSimulation">RESET</button>
+                        <button class="sys-btn border-glow-btn font-share sm-btn" @click="setPage('simulator'); closeSimulationModal();">
+                            <span>EXPLORE FULL SIMULATOR</span>
+                        </button>
+                        <button class="sys-btn md-close-bottom-btn font-share" @click="closeSimulationModal">DISMISS</button>
+                    </div>
                 </div>
             </div>
         </div>
