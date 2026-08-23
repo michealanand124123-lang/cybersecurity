@@ -4037,5 +4037,70 @@ body {
     margin: 0;
 }
 
+/* ========================================== */
+/* SECURITY HARDENING STATUS MODAL STYLES     */
+/* ========================================== */
+.security-hardening-card {
+    max-width: 760px;
+    width: 95%;
+    background: #090f1d;
+    border: 1px solid rgba(0, 242, 254, 0.4);
+    box-shadow: 0 0 35px rgba(0, 242, 254, 0.15);
+}
+.security-controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 14px;
+    margin: 10px 0;
+}
+.sec-control-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    transition: border-color 0.2s, transform 0.2s;
+}
+.sec-control-item:hover {
+    border-color: rgba(0, 242, 254, 0.4);
+    transform: translateY(-2px);
+}
+.sec-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    font-weight: 900;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+.sec-control-text strong {
+    display: block;
+    font-size: 0.88rem;
+    color: #f1f5f9;
+    margin-bottom: 3px;
+    letter-spacing: 0.3px;
+}
+.sec-control-text p {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    line-height: 1.35;
+    margin: 0;
+}
+.security-status-btn {
+    color: #38bdf8 !important;
+}
+.security-status-btn:hover {
+    background: rgba(56, 189, 248, 0.15) !important;
+    border-color: #38bdf8 !important;
+}
+
 
 

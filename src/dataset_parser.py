@@ -1,3 +1,4 @@
+import os
 import csv
 import io
 import json
@@ -38,6 +39,24 @@ COLUMN_ALIASES = {
 ORG_FIELD_SIGNATURES = [
     "org_id", "sector", "risk_appetite", "weight_modifiers", "critical_products"
 ]
+
+def sanitize_dataset_filename(filename):
+    """
+    Safely sanitizes an uploaded filename to prevent directory traversal and injection.
+    Preserves valid basename, rejects path traversals (../../, ..\\).
+    """
+    if not filename or not isinstance(filename, str):
+        return "uploaded_dataset.csv"
+    # Take only the base filename component
+    clean_name = os.path.basename(filename.replace("\\", "/"))
+    # Remove any traversal markers, null bytes, control characters
+    clean_name = re.sub(r"[\x00-\x1f\x7f/\\]", "", clean_name)
+    clean_name = clean_name.lstrip(".")
+    # Keep alphanumeric, underscores, hyphens, dots, spaces
+    clean_name = re.sub(r"[^a-zA-Z0-9_\-\. ]", "", clean_name).strip()
+    if not clean_name:
+        return "uploaded_dataset.csv"
+    return clean_name[:100]
 
 def normalize_header_name(header):
     """Cleans and standardizes column header names for fuzzy alias matching."""
@@ -109,7 +128,7 @@ def classify_dataset(columns, sample_rows=None, raw_json=None):
 
 def parse_boolean_value(val):
     """
-    Strict boolean parser.
+    Strict Boolean parsing without fabrication.
     Returns (bool_val, is_valid).
     """
     if val is None:
@@ -119,20 +138,20 @@ def parse_boolean_value(val):
     if isinstance(val, (int, float)):
         if val == 1:
             return True, True
-        elif val == 0:
+        if val == 0:
             return False, True
         return None, False
         
     s = str(val).strip().lower()
-    if s in ("true", "1", "yes", "y", "t", "known", "active", "exploited"):
+    if s in ["true", "1", "yes", "y", "t", "known", "exploited", "in_kev"]:
         return True, True
-    elif s in ("false", "0", "no", "n", "f", "unknown", "unlisted", "none", ""):
+    if s in ["false", "0", "no", "n", "f", "unknown", "unlisted", "not_exploited"]:
         return False, True
     return None, False
 
 def parse_float_value(val, min_val=None, max_val=None):
     """
-    Strict float parser with boundary enforcement.
+    Strict Float parsing within optional bounds.
     Returns (float_val, is_valid).
     """
     if val is None or str(val).strip() == "":
@@ -150,6 +169,7 @@ def parse_float_value(val, min_val=None, max_val=None):
 def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
     """
     Inspects, validates, and normalizes an uploaded CSV or JSON string.
+    Preserves raw data fields intact while enforcing strict boundary validation.
     
     Returns:
         dict: Inspection report containing:
@@ -165,11 +185,34 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
             - quality_report (dict)
             - preview_rows (list of first 5-10 rows)
     """
+    safe_filename = sanitize_dataset_filename(filename)
+    
+    # 1. File size enforcement (10MB limit)
     if not file_content_str or not file_content_str.strip():
         return {
             "is_valid": False,
             "error": "Uploaded file is completely empty.",
-            "dataset_type": "unknown_dataset"
+            "dataset_type": "unknown_dataset",
+            "filename": safe_filename
+        }
+        
+    content_bytes = file_content_str.encode("utf-8")
+    if len(content_bytes) > 10 * 1024 * 1024:
+        return {
+            "is_valid": False,
+            "error": "Uploaded file exceeds maximum 10MB limit.",
+            "dataset_type": "unknown_dataset",
+            "filename": safe_filename
+        }
+        
+    # 2. Extension validation
+    lower_name = safe_filename.lower()
+    if not (lower_name.endswith(".csv") or lower_name.endswith(".json") or lower_name.endswith(".txt")):
+        return {
+            "is_valid": False,
+            "error": f"Unsupported file extension for '{safe_filename}'. Supported formats: CSV, JSON.",
+            "dataset_type": "unknown_dataset",
+            "filename": safe_filename
         }
         
     content = file_content_str.strip()
@@ -177,7 +220,7 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
     columns = []
     raw_json = None
     
-    # 1. Determine JSON vs CSV format
+    # 3. Determine JSON vs CSV format
     is_json = False
     if content.startswith("{") or content.startswith("["):
         try:
@@ -205,7 +248,8 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
             return {
                 "is_valid": False,
                 "error": "JSON file did not contain a valid array of vulnerability objects.",
-                "dataset_type": "unknown_dataset"
+                "dataset_type": "unknown_dataset",
+                "filename": safe_filename
             }
     else:
         # Parse CSV
@@ -226,7 +270,8 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
                 return {
                     "is_valid": False,
                     "error": "CSV file is empty or missing a header row.",
-                    "dataset_type": "unknown_dataset"
+                    "dataset_type": "unknown_dataset",
+                    "filename": safe_filename
                 }
                 
             columns = [c.strip() for c in header if c is not None]
@@ -246,17 +291,19 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
             return {
                 "is_valid": False,
                 "error": f"Failed to parse CSV file: {str(e)}",
-                "dataset_type": "unknown_dataset"
+                "dataset_type": "unknown_dataset",
+                "filename": safe_filename
             }
             
-    # 2. Classify Dataset
+    # 4. Classify Dataset
     dataset_type = classify_dataset(columns, raw_rows, raw_json)
     if dataset_type == "unknown_dataset":
         return {
             "is_valid": False,
             "error": "Unknown dataset structure. Could not identify vulnerability or organization attributes.",
             "dataset_type": "unknown_dataset",
-            "detected_columns": columns
+            "detected_columns": columns,
+            "filename": safe_filename
         }
         
     if dataset_type == "organization_profile":
@@ -265,10 +312,11 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
             "dataset_type": "organization_profile",
             "detected_columns": columns,
             "total_records": len(raw_rows),
+            "filename": safe_filename,
             "message": "Organization profile dataset detected."
         }
         
-    # 3. Detect Column Mappings
+    # 5. Detect Column Mappings
     mappings = detect_column_mappings(columns)
     
     # Required core keys for deterministic ranking
@@ -281,16 +329,6 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
     published_col = mappings.get("published_date")
     ref_col = mappings.get("reference_url")
     
-    if not cve_col or not prod_col:
-        return {
-            "is_valid": False,
-            "error": f"Dataset is missing mandatory identifiers. Detected columns: {columns}",
-            "dataset_type": "vulnerability_dataset",
-            "detected_columns": columns,
-            "column_mappings": mappings
-        }
-        
-    # 4. Process and strictly validate every row
     valid_records = []
     invalid_records = []
     seen_keys = set()
@@ -305,17 +343,17 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
     for row_idx, row in enumerate(raw_rows, start=1):
         line_num = row.get("_line_number", row_idx)
         
-        # Extract values using mapped columns
+        # Extract raw values preserving full data fidelity (treating as untrusted)
         raw_cve = str(row.get(cve_col, "")).strip() if cve_col else ""
         raw_prod = str(row.get(prod_col, "")).strip() if prod_col else ""
         raw_cvss = row.get(cvss_col) if cvss_col else None
         raw_kev = row.get(kev_col) if kev_col else None
         raw_epss = row.get(epss_col) if epss_col else None
         
-        # Optional metadata
-        raw_vendor = str(row.get(vendor_col, "")).strip() if vendor_col else None
-        raw_published = str(row.get(published_col, "")).strip() if published_col else None
-        raw_ref = str(row.get(ref_col, "")).strip() if ref_col else None
+        # Optional metadata preserved intact
+        raw_vendor = str(row.get(vendor_col, "")).strip() if vendor_col and row.get(vendor_col) is not None else None
+        raw_published = str(row.get(published_col, "")).strip() if published_col and row.get(published_col) is not None else None
+        raw_ref = str(row.get(ref_col, "")).strip() if ref_col and row.get(ref_col) is not None else None
         
         reasons = []
         
@@ -373,11 +411,10 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
         comp_key = (raw_cve.upper(), raw_prod.lower())
         if comp_key in seen_keys:
             duplicates_count += 1
-            # Note: per requirements, keep track of duplicates
         else:
             seen_keys.add(comp_key)
             
-        # Normalize into internal VULNTRIAGE record
+        # Normalize into internal VULNTRIAGE record preserving raw strings
         normalized_record = {
             "cve_id": raw_cve,
             "product_name": raw_prod,
@@ -394,7 +431,7 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
             
         valid_records.append(normalized_record)
         
-    # 5. Build Preview Rows (first 10 valid or raw rows)
+    # 6. Build Preview Rows (first 10 valid or raw rows)
     preview_rows = []
     preview_limit = min(10, len(raw_rows))
     for i in range(preview_limit):
@@ -424,7 +461,7 @@ def parse_and_inspect_dataset(file_content_str, filename="uploaded_file"):
     
     return {
         "is_valid": len(valid_records) > 0,
-        "filename": filename,
+        "filename": safe_filename,
         "dataset_type": "vulnerability_dataset",
         "detected_columns": columns,
         "column_mappings": mappings,

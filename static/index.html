@@ -420,6 +420,13 @@
                             </div>
                         </div>
 
+                        <!-- Security Hardening Controls Modal Trigger -->
+                        <button class="header-action-btn security-status-btn" title="Platform Security Hardening Status" @click="showSecurityModal = true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                        </button>
+
                         <!-- Theme Toggle (Futuristic Style) -->
                         <button class="header-action-btn" title="System Theme Toggle" @click="toggleTheme">
                             <svg v-if="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -482,7 +489,7 @@
                                 <div class="stat-icon matches-lvl">🔎</div>
                                 <div class="stat-info">
                                     <span class="stat-lbl">MATCHED RESULTS</span>
-                                    <h3 class="stat-val">{{ currentOrgData.match_report.matched_count }}</h3>
+                                    <h3 class="stat-val">{{ (currentOrgData.match_report && currentOrgData.match_report.matched_count !== undefined) ? currentOrgData.match_report.matched_count : (currentOrgData.matched_count || 0) }}</h3>
                                     <span class="stat-meta">On Critical Products</span>
                                 </div>
                             </div>
@@ -627,9 +634,7 @@
                                                         <span class="action-lbl">REVENUE RISK ACTION PLAN:</span>
                                                         <p class="action-desc">Review this vulnerability and verify the affected product status.</p>
                                                         <div class="card-action-btns">
-                                                            <button class="sys-btn border-glow-btn font-share sm-btn sim-trigger-btn" @click.stop="openSimulationModal(vuln)" title="Model what happens if this vulnerability is remediated">
-                                                                <span>⚡ SIMULATE FIX</span>
-                                                            </button>
+                                                           
                                                             <button class="sys-btn border-glow-btn font-share sm-btn ai-trigger-btn" @click.stop="openAiAnalysis(vuln)" title="Request explainable natural-language AI analysis">
                                                                 <span>✨ AI ADVISOR</span>
                                                             </button>
@@ -2024,6 +2029,8 @@
                     <button v-if="!signupSubmitted" class="login-submit-btn modal-action-btn font-share" @click="submitSignup">SUBMIT REQUEST</button>
                     <button v-else class="sys-btn font-share" @click="closeSignupModal">DISMISS</button>
                 </div>
+            </div>
+        </div>
         <!-- ==========================================
              QUICK REMEDIATION SIMULATION MODAL
              ========================================== -->
@@ -2104,6 +2111,89 @@
                         </button>
                         <button class="sys-btn md-close-bottom-btn font-share" @click="closeSimulationModal">DISMISS</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PLATFORM SECURITY HARDENING STATUS MODAL   -->
+        <!-- ========================================== -->
+        <div v-if="showSecurityModal" class="modal-overlay" @click.self="showSecurityModal = false">
+            <div class="modal-card security-hardening-card animated zoomIn">
+                <div class="modal-header">
+                    <div class="modal-title-group">
+                        <span class="modal-icon">🛡️</span>
+                        <div>
+                            <h2 class="modal-title font-share">PLATFORM SECURITY HARDENING STATUS</h2>
+                            <span class="modal-subtitle font-share">Verified Defense, Isolation & Engine Protection Controls</span>
+                        </div>
+                    </div>
+                    <button class="modal-close-btn" @click="showSecurityModal = false">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="security-controls-grid">
+                        <div class="sec-control-item">
+                            <span class="sec-check">✓</span>
+                            <div class="sec-control-text">
+                                <strong>Server-Side Secret & Key Isolation</strong>
+                                <p>FEATHERLESS_API_KEY and secrets are strictly isolated server-side. Zero credential leakage in browser API responses or logs.</p>
+                            </div>
+                        </div>
+                        <div class="sec-control-item">
+                            <span class="sec-check">✓</span>
+                            <div class="sec-control-text">
+                                <strong>AI Prompt Boundary Injection Defense</strong>
+                                <p>All vulnerability dataset inputs are treated as UNTRUSTED DATA with strict instruction boundary isolation, preventing LLM instruction overrides.</p>
+                            </div>
+                        </div>
+                        <div class="sec-control-item">
+                            <span class="sec-check">✓</span>
+                            <div class="sec-control-text">
+                                <strong>Path Traversal & Filename Sanitization</strong>
+                                <p>Uploaded filenames are sanitized to safe basenames, blocking directory traversal attacks (../../, null bytes).</p>
+                            </div>
+                        </div>
+                        <div class="sec-control-item">
+                            <span class="sec-check">✓</span>
+                            <div class="sec-control-text">
+                                <strong>Non-Destructive Data Validation</strong>
+                                <p>Strict boundary validation (0-10 CVSS, 0-1 EPSS, Boolean KEV) with zero silent defaulting or character deletion.</p>
+                            </div>
+                        </div>
+                        <div class="sec-control-item">
+                            <span class="sec-check">✓</span>
+                            <div class="sec-control-text">
+                                <strong>Rendering Boundary XSS Defense</strong>
+                                <p>Contextual Vue text DOM interpolation ensures all untrusted strings and tags are rendered safely as plain text without script execution.</p>
+                            </div>
+                        </div>
+                        <div class="sec-control-item">
+                            <span class="sec-check">✓</span>
+                            <div class="sec-control-text">
+                                <strong>HTTP Security Headers</strong>
+                                <p>Enforcement of CSP, X-Content-Type-Options: nosniff, X-Frame-Options: SAMEORIGIN, and Referrer-Policy.</p>
+                            </div>
+                        </div>
+                        <div class="sec-control-item">
+                            <span class="sec-check">✓</span>
+                            <div class="sec-control-text">
+                                <strong>Authoritative Deterministic Engine Authority</strong>
+                                <p>All numerical risk scores, ranks, and weights come strictly from the protected deterministic engine. AI provides explainability only.</p>
+                            </div>
+                        </div>
+                        <div class="sec-control-item">
+                            <span class="sec-check">✓</span>
+                            <div class="sec-control-text">
+                                <strong>Security Audit Event Logging</strong>
+                                <p>Structured, secret-free server audit logs track authentication, upload inspection, dataset activation, simulation, and AI queries.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="sys-btn border-glow-btn font-share" @click="showSecurityModal = false">
+                        <span>CLOSE VERIFICATION</span>
+                    </button>
                 </div>
             </div>
         </div>

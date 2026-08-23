@@ -228,6 +228,11 @@ createApp({
         };
 
         // ==========================================
+        // SECURITY HARDENING STATUS MODAL
+        // ==========================================
+        const showSecurityModal = ref(false);
+
+        // ==========================================
         // FEATHERLESS AI ADVISORY STATE & ACTIONS
         // ==========================================
         const showAiModal = ref(false);
@@ -650,8 +655,25 @@ createApp({
         });
 
         const currentOrgData = computed(() => {
-            if (!backendData.value || !backendData.value.org_data) return { match_report: { matched_count: 0, zero_match_products: [] }, top_5: [], ranked_vulnerabilities: [] };
-            return backendData.value.org_data[selectedOrgId.value] || { match_report: { matched_count: 0, zero_match_products: [] }, top_5: [], ranked_vulnerabilities: [] };
+            if (!backendData.value || !backendData.value.org_data) {
+                return { matched_count: 0, match_report: { matched_count: 0, zero_match_products: [] }, top_5: [], ranked_vulnerabilities: [] };
+            }
+            const data = backendData.value.org_data[selectedOrgId.value];
+            if (!data) {
+                return { matched_count: 0, match_report: { matched_count: 0, zero_match_products: [] }, top_5: [], ranked_vulnerabilities: [] };
+            }
+            const count = (data.matched_count !== undefined && data.matched_count !== null) ? data.matched_count :
+                          (data.match_report && data.match_report.matched_count !== undefined ? data.match_report.matched_count :
+                          (data.match_report && data.match_report.matched_vulnerabilities ? data.match_report.matched_vulnerabilities.length :
+                          (data.ranked_vulnerabilities ? data.ranked_vulnerabilities.length : 0)));
+            return {
+                ...data,
+                matched_count: count,
+                match_report: {
+                    ...(data.match_report || {}),
+                    matched_count: count
+                }
+            };
         });
 
         const top5KevCount = computed(() => {
@@ -799,8 +821,10 @@ createApp({
 
         onMounted(() => {
             checkSavedSession();
-            fetchData();
-            fetchAiStatus();
+            if (isAuthenticated.value) {
+                fetchData();
+                fetchAiStatus();
+            }
         });
 
         return {
@@ -836,6 +860,7 @@ createApp({
             openSignupModal,
             closeSignupModal,
             submitSignup,
+            showSecurityModal,
 
             // AI Advisory exports
             showAiModal,
